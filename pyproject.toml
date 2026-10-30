@@ -1,0 +1,9 @@
+[project]
+name = "piano"
+version = "0.1.0"
+description = "Web piano that plays notes over Bluetooth LE on an ESP32 + buzzer (MicroPython)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mpremote>=1.29.0",
+]
