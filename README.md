@@ -8,7 +8,7 @@ ESP32, which plays them on a buzzer in real time.
 ```
 pyproject.toml       uv project: pins mpremote (the tool that talks to the board over USB)
 buzzer.py            first demo: beeps, scale, siren, Twinkle, Ode to Joy (no Bluetooth). Works.
-esp32/main.py        ESP32 firmware: BLE receiver -> buzzer on GPIO 33. NOT yet run on the board.
+esp32/main.py        ESP32 firmware: BLE receiver -> buzzer on GPIO 33. Installed on the board as :main.py (auto-starts).
 web/index.html       the web piano (the whole site is this one file). Deployed and working.
 tools/fake_esp32.py  laptop pretends to be the ESP32 (test the site from a phone, no board needed)
 piano-web.zip        zip of web/ that is dropped on Vercel (build artifact, not in git; see Redeploy)
@@ -92,9 +92,22 @@ asks for an email-code re-authentication, which only the user can do.
 - **"This browser can't use Bluetooth" on Linux Chrome**: open `chrome://flags/#enable-web-bluetooth`
   (or `#enable-experimental-web-platform-features`), set it to **Enabled** and relaunch Chrome.
   BlueZ must be running (`systemctl status bluetooth`). This is already done on this laptop.
+- **"Couldn't connect: Connection attempt failed." on Android**: common on the first try
+  (Android's GATT error 133). Just press Connect again; the retry worked on 2026-11-03.
 - **Connected but silent**: check the wiring and the volume (`VOLUME` in `esp32/main.py`).
+  Quick buzzer check (stop the firmware first): a magnetic buzzer's coil (~20-40 Ω) pulls D33
+  to GND, so with the internal pull-up D33 reads 0 when the buzzer is connected, 1 when the
+  circuit is open:
+  `uv run mpremote connect /dev/ttyUSB0 exec "from machine import Pin; print(Pin(33, Pin.IN, Pin.PULL_UP).value())"`
+  If it flips between 0 and 1 when you touch things, there's a loose contact (see History, 2026-11-03).
 - **`mpremote` can't open /dev/ttyUSB0**: check that `id` lists `uucp`, and that no other
   `mpremote` or serial monitor is holding the port.
+- **No /dev/ttyUSB0 at all, but `journalctl -k` shows the CP2102 (`10c4:ea60`)**: the kernel
+  was upgraded without a reboot, so the running kernel's modules (`cp210x`) are gone. Reboot, or
+  load it from the cached package of the running kernel (`uname -r`) without rebooting:
+  `tar --zstd -xf /var/cache/pacman/pkg/linux-zen-<running version>-x86_64.pkg.tar.zst --wildcards '*/cp210x.ko.zst'`,
+  `zstd -d` it, then `sudo insmod cp210x.ko` (needs the user's password, so a separate terminal).
+  Installing Arch's `kernel-modules-hook` package prevents this.
 
 ### Protocol
 
@@ -117,14 +130,15 @@ that sends the notes in real time over the device's **Bluetooth** to an ESP32 ne
 plays them on a buzzer. The site's UI is in English. The user's Claude memory says to start
 each session by reading this README and to keep it updated with anything new.
 
-### Current status (end of session on 2026-10-28)
+### Current status (in class, 2026-11-03)
 | Part | Status |
 |---|---|
-| `buzzer.py` on the real ESP32 | ✅ The user confirmed it "works perfectly" (so the buzzer is **passive**) |
+| `buzzer.py` on the real ESP32 | ✅ The user confirmed it "works perfectly" on 2026-10-28 (so the buzzer is **passive**) |
 | Website on Vercel | ✅ Live, latest version deployed |
 | Piano UI (keys, glissando, keyboard, octaves) | ✅ Tested on the live site with Claude in Chrome |
 | BLE from the website to a receiver | ✅ Tested end to end: Android phone → laptop running `fake_esp32.py` |
-| `esp32/main.py` on the real ESP32 | ❌ **Never run yet**: the board was returned to the teacher before it was written |
+| `esp32/main.py` on the real ESP32 | ✅ Starts with no changes on MicroPython 1.29; the Redmi 12 connects (LED on GPIO 2 lights), and every note arrives with the right frequency and drives PWM on D33 (verified with a logging copy) |
+| Sound from the buzzer | ✅ **Works end to end** (phone → BLE → ESP32 → buzzer), **as long as the ESP32 is pressed firmly into the breadboard**. It sits loosely there, and D33/GND lose contact with any vibration. Wire the buzzer straight to the board's pins to make it reliable |
 
 ### Runbook: when the user says "the ESP32 is connected now"
 1. Check the board is there: `ls /dev/ttyUSB*` and
@@ -146,22 +160,31 @@ each session by reading this README and to keep it updated with anything new.
 7. Record the results here (Current status table + History).
 
 ### Hardware
-- **ESP32** dev board running **MicroPython** (version unknown, see Runbook step 1).
-  It's **borrowed from the teacher**: the user only has it in class, so between classes
-  nothing can be tested on hardware.
+- **ESP32** dev board running **MicroPython v1.29.0** (2026-08-24, `ESP32_GENERIC`, "Generic ESP32
+  module with ESP32"). Its filesystem has the teacher's `blink.py` and `boot.py` (the default
+  139-byte one); leave them alone. Since 2026-11-03 it also has **our `main.py`**, so the piano
+  firmware starts on every power-up/reset. `mpremote` still works while it runs (it interrupts it
+  with Ctrl-C). Before giving the board back, ask the user whether to remove it (`rm :main.py`). It's **borrowed from the teacher**: the user only has it in
+  class, so between classes nothing can be tested on hardware.
 - It connects over USB at **`/dev/ttyUSB0`** through a CP2102 USB-UART chip (`10c4:ea60`).
-- **Buzzer**: a 3-pin module with its **S** (signal) pin on **D33 = GPIO 33**. It's **passive**:
-  PWM tunes play correctly, so it can play any frequency.
-- I don't know the board's on-board LED pin. The firmware assumes **GPIO 2**, the usual one
-  (`LED_PIN`, which can be set to `None`).
+- **Buzzer**: a 3-pin passive magnetic module: a coil of roughly 20-40 Ω between S and −. Wiring:
+  **S → D33 = GPIO 33**, **− → GND**, and since 2026-11-03 the middle pin (VCC/+) → **3V3**. The
+  first module also played with only S and −. On 2026-11-03 it was swapped for a second one,
+  but it probably wasn't broken (see History).
+- **The ESP32 sits loosely in the breadboard.** D33 and GND only make contact when the board is
+  pressed in. This was the root cause of "no sound" on 2026-11-03. Press it in fully, or plug the
+  dupont wires straight onto the board's header pins.
+- The on-board LED is **blue, on GPIO 2** (confirmed 2026-11-03), as the firmware assumes.
 - **The user's phone**: a Xiaomi Redmi 12 running Android, using Chrome. Web Bluetooth works on it.
 
 ### Laptop (Arch Linux, fish shell, zen kernel 7.2.x, Google Chrome 156)
 - **mpremote** is a dependency of the uv project in this directory (`pyproject.toml`, `.venv`). Run it as `uv run mpremote ...`; it is no longer installed globally.
 - **Serial permission**: `/dev/ttyUSB0` is `root:uucp`, mode 660, and the user is in the `uucp` group.
 - **Bluetooth**: a MediaTek MT7920 Wi-Fi + Bluetooth combo (`hci0`, `btusb`/`btmtk`). BlueZ 5.87
-  is installed (`bluez`, `bluez-utils`) and `bluetooth.service` is enabled and active. The
-  controller is `Powered: yes` and supports the peripheral role and LE advertising.
+  is installed (`bluez`, `bluez-utils`). The controller supports the peripheral role and LE
+  advertising. **On 2026-11-03 `bluetooth.service` was disabled and inactive** (it was enabled on
+  10-28), so `bluetoothctl` just hangs. `fake_esp32.py` and laptop Chrome need
+  `sudo systemctl enable --now bluetooth` first. The phone → ESP32 path doesn't need it.
 - **Chrome**: Web Bluetooth is enabled in `chrome://flags`, because it's off by default on Linux.
   `navigator.bluetooth.getAvailability()` returns true on the live site.
 - **Python**: `python-dbus` is installed, but `python-gobject` (`gi.repository`) is NOT. That's
@@ -216,9 +239,51 @@ each session by reading this README and to keep it updated with anything new.
    (`.venv`, `piano-web.zip`, `.claude/settings.local.json`), setup instructions, and doc
    comments/docstrings for the functions that had none. Code behaviour unchanged.
 
+8. **2026-11-03 (in class, board connected)**:
+   - `/dev/ttyUSB0` was missing: the laptop's kernel had been upgraded (7.2.11 → 7.2.14) without a
+     reboot. Fixed by loading `cp210x.ko` from the cached 7.2.11 package with `sudo insmod`
+     (see Troubleshooting).
+   - The board runs MicroPython v1.29.0. `esp32/main.py` ran **unchanged with no errors**. The
+     first Android connect failed ("Connection attempt failed."), and a plain retry worked. The
+     blue LED (GPIO 2) lights on connect.
+   - **No sound, from any script.** Diagnosed from the board without a multimeter:
+     - Continuity: internal pull-up on D33, where 0 means the coil pulls it to GND, and D32 as a
+       blank reference.
+     - Load: ADC on D33 while driven high. 1.2 V means coil present and 3.1 V means nothing
+       connected. The ADC must be created **before** the PWM, because creating it after
+       disconnects the PWM output. And at audio frequencies the "max" reading catches the coil's
+       switching spikes, so it is useless there.
+     - PWM: 10 Hz PWM sampled by the ADC. It toggles fine, also with BLE active, so BLE does not
+       interfere with D33.
+     - Notes: a logging copy of the firmware showed 110+ notes arriving with the right
+       frequencies, each one starting/stopping the PWM.
+   - **Cause: bad contacts, not the code.** First the GND dupont wire was loose, and the user
+     replaced it. The contact still opened after a note or two. That made me wrongly blame the
+     buzzer module (pressing on it closed the circuit), so the user swapped it for another one,
+     and the new one did the same. The real culprit was **the ESP32 itself sitting loosely in
+     the breadboard**. With the LED contact finder (`contact_led.py` idea: GPIO 2 LED = D33
+     pull-up reads 0), pressing the board in closed the circuit, and then the piano played.
+     The buzzer's own vibration was enough to open the contact, which is why it always went
+     silent after the first few notes.
+   - Tried `Pin.DRIVE_3` (max pin current) on the buzzer pin, then **reverted** it. It wasn't the
+     problem, and with a ~20-40 Ω coil it pushes the pin past its rated current on the teacher's
+     board.
+   - **End-to-end success**: with the board pressed in, the ready chirp played and the piano on the
+     Redmi 12 played notes on the buzzer.
+   - Still pending: the page's initial "0" write right after connecting may cut the 140 ms connect
+     chirp short. Fix that in the firmware, e.g. ignore 0 writes while a chirp plays, or make
+     chirps not interruptible.
+   - **Installed as `:main.py`** (`mpremote cp esp32/main.py :main.py`), so it runs by itself on
+     power-up. Verified with a hard reset (EN pulsed via RTS) and the serial log: after the ROM boot
+     messages it printed `Advertising as ESP32-Piano - ...` with no errors. Board files now:
+     `blink.py`, `boot.py`, `main.py`.
+   - The user had set `VOLUME = 1` (100% duty, which keeps D33 at a steady high, so a passive
+     buzzer only clicks). It was installed like that first, then the user asked to go back to
+     **`VOLUME = 0.5`** (the committed value). That version was reinstalled as `:main.py`, the
+     sizes match the repo (4473 bytes), and after a reset it printed `Advertising as ESP32-Piano`.
+
 ### Not verified yet
-- Anything in `esp32/main.py` on the real board: that it starts, BLE works on the teacher's
-  MicroPython version, the actual latency, and the LED pin.
+- The actual latency on the real board, and whether the connect/disconnect chirps are audible.
 - The fixed connect/disconnect logging in `tools/fake_esp32.py`.
 - The site on an iPhone (Bluefy) or on Windows/macOS.
 
