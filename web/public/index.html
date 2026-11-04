@@ -73,8 +73,8 @@
         <input id="sName" maxlength="80" placeholder="Untitled melody" aria-label="Melody name" spellcheck="false">
         <span id="sSaveState" class="save-state"></span>
         <button id="sNew" title="New melody">New</button>
-        <button id="sOpen" title="My saved melodies"><svg class="ic"><use href="#i-folder"/></svg><span class="lbl"> My melodies</span></button>
-        <button id="sSave" class="primary" title="Save to my account (Ctrl+S)"><svg class="ic"><use href="#i-save"/></svg><span class="lbl"> Save</span></button>
+        <button id="sOpen" title="My melodies saved on the ESP32"><svg class="ic"><use href="#i-folder"/></svg><span class="lbl"> My melodies</span></button>
+        <button id="sSave" class="primary" title="Save to my account on the ESP32 (Ctrl+S)"><svg class="ic"><use href="#i-save"/></svg><span class="lbl"> Save</span></button>
       </div>
       <div class="group transport">
         <button id="sStart" class="icon" title="Back to the start"><svg class="ic"><use href="#i-start"/></svg></button>
@@ -130,6 +130,7 @@
     <form id="authForm">
       <h2>Your account</h2>
       <p id="authReason" class="muted" hidden></p>
+      <p class="muted">Accounts and melodies are stored on the ESP32, so it has to be connected (you'll be asked to pick it).</p>
       <div class="seg">
         <button type="button" data-tab="login" aria-pressed="true">Log in</button>
         <button type="button" data-tab="register" aria-pressed="false">Create account</button>
@@ -146,7 +147,7 @@
 
   <dialog id="userDlg" class="dlg">
     <h2><svg class="ic"><use href="#i-user"/></svg> <span id="userName"></span></h2>
-    <p class="muted">Your melodies are saved to this account.</p>
+    <p class="muted">Your melodies are saved on the ESP32, in this account.</p>
     <div class="row">
       <button type="button" id="userClose">Close</button>
       <button type="button" id="logout">Log out</button>
@@ -160,6 +161,7 @@
     </div>
     <ul id="listItems" class="melody-list"></ul>
     <p id="listEmpty" class="muted" hidden>No melodies yet. Compose one in the Studio and press Save.</p>
+    <p id="listFree" class="muted list-free"></p>
   </dialog>
 
   <dialog id="confirmDlg" class="dlg">

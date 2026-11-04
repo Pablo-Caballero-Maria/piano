@@ -853,7 +853,7 @@ async function newMelody() {
 
 async function save() {
   if (recording) stop();
-  if (!api.currentUser() && !(await openAuth("Log in or create an account to save your melodies."))) return;
+  if (!api.currentUser() && !(await openAuth("Log in or create an account to save your melodies on the ESP32."))) return;
   const name = $("sName").value.trim() || DEFAULT_NAME;
   const payload = { name, bpm: melody.bpm, notes: plainNotes() };
   const btn = $("sSave");
@@ -886,20 +886,22 @@ async function save() {
 }
 
 async function openList() {
-  if (!api.currentUser() && !(await openAuth("Log in to see your saved melodies."))) return;
+  if (!api.currentUser() && !(await openAuth("Log in to see the melodies you saved on the ESP32."))) return;
+  const loading = refreshList(); // starts the Bluetooth connection first, while this click still counts
   $("listDlg").showModal();
-  refreshList();
+  await loading;
 }
 
 async function refreshList() {
   const ul = $("listItems");
   $("listEmpty").hidden = true;
-  ul.innerHTML = `<li class="muted">Loading…</li>`;
+  ul.innerHTML = `<li class="muted">Loading from the ESP32…</li>`;
   try {
     const list = await api.listMelodies();
     ul.innerHTML = "";
     $("listEmpty").hidden = list.length > 0;
     for (const m of list) ul.append(listRow(m));
+    $("listFree").textContent = api.freeKB == null ? "" : `Stored on the ESP32 · ${api.freeKB} KB free`;
   } catch (err) {
     ul.innerHTML = "";
     const li = document.createElement("li");

@@ -3,14 +3,16 @@
 Play a piano in the browser (PC or phone); the notes go over Bluetooth (BLE) to an
 ESP32, which plays them on a buzzer in real time. A **Studio** mode (a piano roll like
 FL Studio's) lets you compose melodies, play them on the buzzer, and save them to your
-own account.
+own account. **Accounts and melodies are stored on the ESP32 itself** (a btree database in its
+flash), reached over the same Bluetooth link: there is no server-side backend.
 
 **Live site: https://piano-web-virid.vercel.app/**. Every push to `main` on GitHub deploys it.
 
 ```
 pyproject.toml       uv project: pins mpremote (the tool that talks to the board over USB)
 buzzer.py            first demo: beeps, scale, siren, Twinkle, Ode to Joy (no Bluetooth). Works.
-esp32/main.py        ESP32 firmware: BLE receiver -> buzzer on GPIO 33. Installed on the board as :main.py (auto-starts).
+esp32/main.py        ESP32 firmware: BLE receiver -> buzzer on GPIO 33, plus the storage link. Installed on the board as :main.py (auto-starts).
+esp32/store.py       accounts + melodies database on the board's flash (btree file :piano.db). Installed as :store.py.
 tools/fake_esp32.py  laptop pretends to be the ESP32 (test the site from a phone, no board needed)
 web/                 the website = the Vercel project's Root Directory
   public/            static site (no build step): index.html, css/app.css, js/*.js (ES modules)
@@ -18,14 +20,11 @@ web/                 the website = the Vercel project's Root Directory
     js/keyboard.js   on-screen piano (touch, glissando, computer keys), used by both modes
     js/studio.js     Studio: piano roll editor, playback, recording, save/open
     js/notes.js      note names, frequencies, resultant frequency of overlapping notes
-    js/ble.js        Web Bluetooth link to the ESP32
+    js/ble.js        Web Bluetooth link to the ESP32: notes + storage requests
     js/sound.js      the single output: ESP32 + optional device sound, metronome
-    js/api.js, ui.js backend calls / login state; dialogs and toasts
-  api/               Vercel serverless functions (Node.js): accounts and melodies
-  lib/               code shared by the functions: MongoDB connection, auth, validation
-  dev-server.mjs     local stand-in for Vercel (`npm run dev`)
-  vercel.json        Vercel config: serve public/, no framework
-  .env.local         MONGODB_URI for local runs (NOT in git; the repo is public)
+    js/api.js        accounts/melodies on the ESP32 (login session, password key, note encoding)
+    js/ui.js         dialogs and toasts
+  vercel.json        Vercel config: serve public/ as a static site, no framework
 README.md            this file: instructions + full project context/log (read it first)
 ```
 
@@ -41,23 +40,30 @@ git clone git@github.com:Pablo-Caballero-Maria/piano.git && cd piano
 uv sync            # creates .venv with mpremote
 ```
 
-The website has no build step (plain HTML/CSS/JS modules). The backend needs Node.js 20+;
-see "Run the website locally" below.
+The website is static, with no build step (plain HTML/CSS/JS modules).
 
 ### Put the firmware on the ESP32
 
 Wire it the same as before, with the buzzer's **S** pin on **D33**.
 
 ```sh
-# Quick test (stops when you press Ctrl-C or unplug); prints "Connected"/"Disconnected":
+# store.py (the database code) must be on the board first, in every case:
+uv run mpremote connect /dev/ttyUSB0 cp esp32/store.py :store.py
+
+# Quick test (stops when you press Ctrl-C or unplug); prints "Connected"/"Disconnected"
+# and every storage request ("Storage: login -> ok"):
 uv run mpremote connect /dev/ttyUSB0 run esp32/main.py
 
 # Or install it so it starts by itself whenever the board gets power
 # (works from a phone charger / power bank, no laptop needed):
-uv run mpremote connect /dev/ttyUSB0 cp esp32/main.py :main.py + reset
+uv run mpremote connect /dev/ttyUSB0 cp esp32/store.py :store.py + cp esp32/main.py :main.py + reset
 
-# Remove it again (back to a blank board):
-uv run mpremote connect /dev/ttyUSB0 rm :main.py
+# Back up / restore everyone's accounts and melodies (the database file):
+uv run mpremote connect /dev/ttyUSB0 cp :piano.db piano.db
+uv run mpremote connect /dev/ttyUSB0 cp piano.db :piano.db + reset
+
+# Remove it again (back to the teacher's board as it was; this ERASES the melodies):
+uv run mpremote connect /dev/ttyUSB0 rm :main.py + rm :store.py + rm :piano.db
 ```
 
 When it starts, the buzzer plays a short rising "ready" chirp (C6-E6-G6) and the board
@@ -103,10 +109,16 @@ and frequency in Hz, from C1 (33 Hz) to B8 (7902 Hz).
 - **Record** (red ●): playback starts from the marker, and every note you play on the piano below
   the roll (or the computer keys, or the key column on the left) is added to the melody, snapped
   to the grid. Existing notes keep playing, so you can layer. One Undo removes the whole take.
-- **Accounts**: press **Log in** to create an account (username + password). Then use **Save**
-  (Ctrl+S) and **My melodies** to open ▶ play, Open (edit), duplicate or delete your saved
-  melodies. Without an account you can still compose; the work in progress is kept in the
-  browser (localStorage) until you save it.
+- **Accounts** (stored **on the ESP32**): press **Log in** to create an account (username +
+  password). If the board isn't connected yet, the Bluetooth chooser opens first. Then use
+  **Save** (Ctrl+S) and **My melodies** to open ▶ play, Open (edit), duplicate or delete your
+  saved melodies. The list shows the board's free flash. Without the board (or an account) you
+  can still compose; the work in progress is kept in the browser (localStorage) until you save
+  it. The login is remembered in the browser and checked again each time the ESP32 connects.
+  Limits: 50 accounts per board, 100 melodies per account, about 1200 notes per melody.
+- Keep in mind: the melodies live **on that board**. They're only reachable while it's
+  connected, by one phone/PC at a time, and stay on the board when it's returned (see "Back up"
+  above).
 
 ### Test without the ESP32
 
@@ -116,53 +128,65 @@ uv run tools/fake_esp32.py      # Ctrl-C to stop, --silent for no sound
 The laptop advertises as **ESP32-Piano** with the same Bluetooth service. It prints each note it
 receives, with the time since the previous one, and plays it on the laptop speaker. Open the
 website on **another device** (the phone) and connect, because a browser can't connect to its
-own computer's Bluetooth.
+own computer's Bluetooth. It only fakes the notes, not the storage: Log in / Save say "This ESP32
+can't store melodies".
 
 ### Run the website locally
 
 ```sh
-cd web
-npm install
-echo 'MONGODB_URI=mongodb+srv://<user>:<password>@mycluster.jrnmp.mongodb.net/' > .env.local   # once; never commit it
-npm run dev            # http://localhost:3000 (static files + the api/ functions, like Vercel)
+python3 -m http.server 3000 -d web/public     # http://localhost:3000
 ```
-Web Bluetooth also works on `http://localhost` (a secure context), so you can connect the ESP32
-from the laptop's Chrome too.
+Web Bluetooth (and the WebCrypto used for passwords) also work on `http://localhost`, a secure
+context, so the laptop's Chrome can connect to the ESP32 too (with `bluetooth.service` running).
 
 ### Deploy
 
 The Vercel project **`piano-web`** is connected to the GitHub repo
 `Pablo-Caballero-Maria/piano`. **Every push to `main` deploys to production**
 (https://piano-web-virid.vercel.app/), and pushes to other branches get preview URLs. Project settings:
-- **Root Directory: `web`**. Framework preset "Other"; `web/vercel.json` serves `public/`.
-- **Environment variable `MONGODB_URI`** = the Atlas connection string (optional `MONGODB_DB`,
-  default `piano`). After changing it, redeploy.
+- **Root Directory: `web`**. Framework preset "Other"; `web/vercel.json` serves `public/` (a
+  static site: no functions, no environment variables needed).
 
 The Vercel team is the user's Hobby team, `pablo-caballero-marias-projects`. Vercel sometimes
 asks for an email-code re-authentication, which only the user can do.
 
-### Backend (accounts and melodies)
+### Storage on the ESP32 (accounts and melodies)
 
-MongoDB Atlas cluster `mycluster.jrnmp.mongodb.net` (the user's), database **`piano`**. The cluster
-also hosts other projects' databases (`sinophile`, `sinophile_dev`); leave those alone.
-Collections:
-- `users` {username, usernameLower (unique), passwordHash (scrypt), createdAt}
-- `sessions` {tokenHash (SHA-256 of the cookie token), userId, expiresAt (TTL index, 30 days)}
-- `melodies` {userId, name, bpm, notes: [{p: MIDI note, s: start, d: duration (beats)}], noteCount, length, createdAt, updatedAt}
+`esp32/store.py` keeps everything in **`:piano.db`** on the board's flash, a MicroPython `btree`
+database (key/value B-tree; MicroPython has no SQLite, and adding it would mean compiling and
+flashing custom firmware on the teacher's board). Keys:
 
-Login is an HttpOnly, Secure, SameSite=Lax cookie `piano_session` holding a random token.
-API (JSON):
-
-| Route | |
+| Key | Value |
 |---|---|
-| `POST /api/auth/register`, `POST /api/auth/login` | `{username, password}` → `{user}` and sets the cookie |
-| `POST /api/auth/logout`, `GET /api/auth/me` | → `{user}` or `{user: null}` |
-| `GET /api/melodies` | the user's melodies, newest first, without notes |
-| `POST /api/melodies` | `{name, bpm, notes}` → `{melody}` (max 5000 notes, 500 melodies per user) |
-| `GET / PUT / DELETE /api/melodies/<id>` | one melody (another user's answers 404) |
+| `u:<user>` | account `{name, salt, hash, t}` (`<user>` = lowercase username) |
+| `s:<sha256(token)>` | `<user>`: a login session (the browser keeps the token in localStorage) |
+| `i:<user>:<id>` | melody info `{name, bpm, n (notes), len (beats), c, u (created/updated, ms)}` |
+| `n:<user>:<id>` | the notes as text, `"p:s:d p:s:d …"` (MIDI note, start, duration in beats) |
+| `#melody` | last melody number (ids are 8 digits) |
 
-The connection string is a secret: it lives only in Vercel's environment variables and
-`web/.env.local` (git-ignored). The repo is public, so never commit it.
+**Passwords never travel**: the browser sends `PBKDF2-SHA256(password, "esp32-piano|" + username,
+100 000 rounds)`, and the board stores `sha256(random salt + that key)`. The Bluetooth link isn't
+encrypted, so someone sniffing nearby could capture and replay that key or a session token. That's
+acceptable for a class project, but don't reuse a real password.
+
+### Storage protocol
+
+A second characteristic in the same service, `7a3e0003-5c2b-4f8e-9d61-3b2f1c9a8e10` (write, write
+without response, notify). Each message, both ways, is a **4-byte little-endian length + JSON**.
+The browser writes requests in chunks of `MTU − 3` bytes and the board answers with notifications
+of the same size. The MTU starts at 23 (20-byte chunks); the board reports the negotiated one in
+`hello`, and accepts up to 256. One request at a time, max 24 000 bytes.
+
+Requests are `{id, op, t (browser clock, ms), tok?, …}`. Answers are `{id, ok: true, …}` or
+`{id, ok: false, code, error}`. The ops: `hello` (→ `mtu`, `free` KB), `register` / `login`
+(`user`, `key`) → `{user, tok}`, `logout`, `me` → `{user | null}`, `list` → rows
+`[id, name, bpm, noteCount, length, updatedAt]`, `get` / `delete` (`mid`), and `create` /
+`update` (`mid`, `melody: {name, bpm, notes, length}`).
+
+In the firmware, the BLE handler only collects the bytes; requests are answered from the main
+loop. Notes keep their own characteristic and are played straight from the BLE handler, so they
+stay low-latency. In the browser, notes and storage chunks share one write queue, so a note
+waits behind at most one chunk.
 
 ### Troubleshooting
 
@@ -170,6 +194,11 @@ The connection string is a secret: it lives only in Vercel's environment variabl
   stay close. Only one device can be connected at a time, so disconnect any other phone.
   This includes `fake_esp32.py`: don't run it at the same time as the real board, or the
   chooser shows two "ESP32-Piano"s.
+- **"This ESP32 can't store melodies"**: the board runs an old `main.py`, or `store.py` is missing.
+  Install both (see "Put the firmware on the ESP32"). `fake_esp32.py` also shows this.
+- **`store error: OSError(0,)` in the log**: the btree database ran out of C heap. That happens if
+  `piano.db` was opened again and again without `store.close_db()` (e.g. test scripts run with
+  `mpremote run`, since a soft reset doesn't free C memory). Hard-reset the board.
 - **"This browser can't use Bluetooth" on Linux Chrome**: open `chrome://flags/#enable-web-bluetooth`
   (or `#enable-experimental-web-platform-features`), set it to **Enabled** and relaunch Chrome.
   BlueZ must be running (`systemctl status bluetooth`). This is already done on this laptop.
@@ -200,7 +229,8 @@ it keeps just the newest note, so a backlog can't build up and add delay. The pa
 the current state (normally 0) right after connecting.
 The UUIDs and the name `ESP32-Piano` are hard-coded in `esp32/main.py`, `web/public/js/ble.js` and
 `tools/fake_esp32.py`; change all three together. The Studio uses the same protocol: it sends the
-resultant frequency whenever it changes.
+resultant frequency whenever it changes. Accounts and melodies use a second characteristic (see
+"Storage protocol").
 
 ---
 
@@ -210,15 +240,18 @@ resultant frequency whenever it changes.
 A class project: a web piano (on **Vercel**, must work on **PC and phone**)
 that sends the notes in real time over the device's **Bluetooth** to an ESP32 nearby, which
 plays them on a buzzer. The site's UI is in English. Since 2026-11-04 it also has an FL-Studio-like
-**Studio** mode with user accounts (MongoDB Atlas), and Vercel deploys straight from GitHub. The user's Claude memory says to start
+**Studio** mode with user accounts, and Vercel deploys straight from GitHub. At the user's request,
+accounts and melodies are stored **on the ESP32** (btree on its flash, over Bluetooth), not in a
+cloud database. The user's Claude memory says to start
 each session by reading this README and to keep it updated with anything new.
 
 ### Current status (2026-11-04)
 | Part | Status |
 |---|---|
 | `buzzer.py` on the real ESP32 | ✅ The user confirmed it "works perfectly" on 2026-10-28 (so the buzzer is **passive**) |
-| Website on Vercel | ✅ Live. Since 2026-11-04 Vercel deploys from GitHub (`main` → production; Root Directory `web`, env `MONGODB_URI` set by the user) |
-| Studio + accounts | ✅ Deployed (commit 36c7d36). The live API reaches Atlas (`/api/auth/me` 200, `/api/melodies` 401 logged out); server files like `lib/` and `.env.local` answer 404. Tested in Chrome on localhost; real phone + ESP32 test: see History 9 |
+| Website on Vercel | ✅ Live, static only. Vercel deploys from GitHub (`main` → production, Root Directory `web`) |
+| Studio (piano roll, playback, recording) | ✅ Works on the real ESP32 from the Redmi 12: 297 frequency changes logged, including the overlap means (422 Hz = F4+B4, 412 = E4+B4, 385 = E4+A4) |
+| Accounts + melodies on the ESP32 | 🟡 `store.py` and the framing tested on the board (fake BLE object) and the web side tested in Chrome against a simulated ESP32 at MTU 23. Installed on the board. Still to test: the phone ↔ real board end to end (History 10) |
 | Piano UI (keys, glissando, keyboard, octaves) | ✅ Tested on the live site with Claude in Chrome |
 | BLE from the website to a receiver | ✅ Tested end to end: Android phone → laptop running `fake_esp32.py` |
 | `esp32/main.py` on the real ESP32 | ✅ Starts with no changes on MicroPython 1.29; the Redmi 12 connects (LED on GPIO 2 lights), and every note arrives with the right frequency and drives PWM on D33 (verified with a logging copy) |
@@ -229,7 +262,8 @@ each session by reading this README and to keep it updated with anything new.
    `uv run mpremote connect /dev/ttyUSB0 exec "import sys; print(sys.implementation, sys.version)"`.
    Write the MicroPython version into this README.
 2. Make sure `fake_esp32.py` isn't running (`ps -eo pid,args | grep [f]ake_esp32`).
-3. Start the firmware **in the background** so its output can be read:
+3. Start the firmware **in the background** so its output can be read (`:store.py` must be on the
+   board, see "Put the firmware on the ESP32"):
    `uv run mpremote connect /dev/ttyUSB0 run esp32/main.py` (it runs forever; stop the task when done).
    Expect `Advertising as ESP32-Piano - ...` and ask the user whether the ready chirp played.
    - If it crashes, the most likely spots are `ble.config(gap_name=...)` (already in a
@@ -240,7 +274,9 @@ each session by reading this README and to keep it updated with anything new.
    the buzzer, the connect chirp, and the disconnect chirp after pressing Disconnect.
 5. Optionally also test from the laptop's Chrome (Web Bluetooth flag already enabled).
 6. If the user wants it to run without the laptop:
-   `uv run mpremote connect /dev/ttyUSB0 cp esp32/main.py :main.py + reset`.
+   `uv run mpremote connect /dev/ttyUSB0 cp esp32/store.py :store.py + cp esp32/main.py :main.py + reset`.
+   Careful: `mpremote run`/`exec` doesn't reset the board, so don't open `piano.db` from test
+   scripts without closing it (see Troubleshooting, `OSError(0,)`). Hard-reset after experiments.
 7. Record the results here (Current status table + History).
 
 ### Hardware
@@ -248,7 +284,9 @@ each session by reading this README and to keep it updated with anything new.
   module with ESP32"). Its filesystem has the teacher's `blink.py` and `boot.py` (the default
   139-byte one); leave them alone. Since 2026-11-03 it also has **our `main.py`**, so the piano
   firmware starts on every power-up/reset. `mpremote` still works while it runs (it interrupts it
-  with Ctrl-C). Before giving the board back, ask the user whether to remove it (`rm :main.py`). It's **borrowed from the teacher**: the user only has it in
+  with Ctrl-C). Since 2026-11-04 it also has **`store.py`** and **`piano.db`** (everyone's accounts
+  and melodies). Before giving the board back, ask the user whether to back up `piano.db` and
+  remove our files (see "Put the firmware on the ESP32"). It's **borrowed from the teacher**: the user only has it in
   class, so between classes nothing can be tested on hardware.
 - It connects over USB at **`/dev/ttyUSB0`** through a CP2102 USB-UART chip (`10c4:ea60`).
 - **Buzzer**: a 3-pin passive magnetic module: a coil of roughly 20-40 Ω between S and −. Wiring:
@@ -387,14 +425,46 @@ each session by reading this README and to keep it updated with anything new.
    - `esp32/main.py` changed only in two comments (the path of the web code), so the copy
      installed on the board is still functionally the same.
 
+10. **2026-11-04, later**: the phone test of the Studio worked on the real board (log above). Then
+    the user asked to move the backend from MongoDB Atlas to **"an SQLite file inside the ESP32's
+    memory"**. Checked on the board: 4 MB flash with ~2 MB free, ~160 KB Python heap. **MicroPython
+    has no `sqlite3`** (only via a custom firmware build with `usqlite`), but it has **`btree`**. I
+    explained the consequences (the data is only reachable over Bluetooth with that board, one
+    device at a time, and it stays on the teacher's board). The user chose **btree** and
+    **"everything on the ESP32"** (accounts too), so MongoDB and the Vercel functions were removed.
+    - New `esp32/store.py` + a storage characteristic in `main.py`, plus `ble.js`/`api.js` on the
+      web side. See "Storage on the ESP32" and "Storage protocol" above. The other web code
+      didn't change.
+    - **Gotcha found while testing**: btree keeps its page cache in the **C (IDF) heap**, which
+      Bluetooth also uses (~108 KB free with BLE on), and only `db.close()` frees it. Test
+      scripts that opened databases without closing them leaked it across `mpremote run`s, until
+      btree failed with `OSError(0,)`. Fixes: `pagesize=1024` (~23 KB instead of ~40 KB) and
+      `store.close_db()` in main.py's `finally`.
+    - Tests: every `store.py` op on the board (accounts, wrong password, isolation between users,
+      a 1000-note melody, data surviving a reopen). Writes take ~0.7 s (flash commit). The
+      framing ran on the board with a fake BLE object: 20-byte chunks at MTU 23, 253-byte
+      notifications at MTU 256 with forced "buffers full" retries, back-to-back requests, an
+      oversize request (413, then the link recovers) and bad JSON. The web side ran in Chrome
+      against a simulated ESP32 at MTU 23 (`navigator.bluetooth` mock): register → save → list →
+      duplicate → open → update → delete → logout → wrong password → login, the session check
+      on reconnect, and an 800-note save with a key press in the middle (the note got through
+      mid-upload; the notes came back identical).
+    - The Atlas `piano` database still holds the phone test's accounts (`test`, `camilo_test`)
+      and a 1-note melody. Nothing was migrated, and the database wasn't deleted (that's the
+      user's call). `web/.env.local` was deleted. The Vercel env var `MONGODB_URI` is no longer
+      used.
+
 ### Not verified yet
 - The actual latency on the real board, and whether the connect/disconnect chirps are audible.
 - The fixed connect/disconnect logging in `tools/fake_esp32.py`.
 - The site on an iPhone (Bluefy) or on Windows/macOS.
-- The Studio on the real ESP32 (needs the board, i.e. a class day), and the Studio on the phone
-  with real touch input (tested only at phone sizes with a mouse).
+- Accounts/melodies between the phone and the real board (the protocol, the firmware and the web
+  side were each tested on their own; see History 10). Also whether Chrome on Android negotiates
+  a bigger MTU (the `hello` answer says; at 23 a 100-note melody takes ~1 s to save).
+- The Studio editor with real touch input (tested at phone sizes with a mouse).
 
 ### Ideas for later
 A volume control (a 3rd byte in the protocol), showing the ESP32's connection quality,
 an "arpeggio" option for overlapping notes (cycle through them fast, which sounds more like a
-chord than the mean), sharing melodies between users, and pinch-to-zoom on the roll.
+chord than the mean), pinch-to-zoom on the roll, and exporting/importing melodies as files
+(so they survive returning the board).

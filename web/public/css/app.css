@@ -230,6 +230,7 @@ button.primary.danger, button.danger.armed { background: var(--err); border-colo
 .melody-list .info b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .melody-list small { color: var(--muted); font-size: 12px; }
 .melody-list button { padding: 7px 10px; flex: none; }
+.list-free { margin: 10px 0 0; font-size: 12px; }
 
 .toast {
   position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 100;

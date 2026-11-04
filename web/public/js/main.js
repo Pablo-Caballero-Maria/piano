@@ -144,8 +144,7 @@ $("logout").onclick = async () => {
 // ---- Start ---------------------------------------------------------------------------
 initAuthDialog();
 initStudio();
-renderAccount(null);
-api.refreshUser();
+renderAccount(api.currentUser()); // remembered in this browser; checked again when the ESP32 connects
 let start = location.hash.slice(1);
 if (!start) try { start = localStorage.getItem("piano-mode"); } catch {}
 setMode(start || "piano");
