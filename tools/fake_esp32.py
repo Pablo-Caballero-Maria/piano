@@ -23,7 +23,7 @@ from dbus_fast import BusType, Message, Variant
 from dbus_fast.aio import MessageBus
 from dbus_fast.service import PropertyAccess, ServiceInterface, dbus_property, method
 
-# Must match esp32/main.py and web/index.html
+# Must match esp32/main.py and web/public/js/ble.js
 DEVICE_NAME = "ESP32-Piano"
 SERVICE_UUID = "7a3e0001-5c2b-4f8e-9d61-3b2f1c9a8e10"
 NOTE_UUID = "7a3e0002-5c2b-4f8e-9d61-3b2f1c9a8e10"

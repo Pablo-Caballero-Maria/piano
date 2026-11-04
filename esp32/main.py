@@ -1,5 +1,5 @@
 # Bluetooth (BLE) piano receiver for an ESP32 + buzzer (MicroPython).
-# The web app (web/index.html) writes the frequency to play; the buzzer holds it
+# The web app (web/public/js/ble.js) writes the frequency to play; the buzzer holds it
 # until the next write. A frequency of 0 means silence.
 #
 # Test without installing:      mpremote connect /dev/ttyUSB0 run esp32/main.py
@@ -16,7 +16,7 @@ LED_PIN = 2       # On-board LED, lit while a phone/PC is connected (None to dis
 VOLUME = 0.5      # PWM duty cycle 0.0-0.5 (0.5 is the loudest for a passive buzzer)
 DEVICE_NAME = "ESP32-Piano"
 
-# Must match SERVICE_UUID / NOTE_UUID in web/index.html
+# Must match SERVICE_UUID / NOTE_UUID in web/public/js/ble.js
 SERVICE_UUID = bluetooth.UUID("7a3e0001-5c2b-4f8e-9d61-3b2f1c9a8e10")
 NOTE_UUID = bluetooth.UUID("7a3e0002-5c2b-4f8e-9d61-3b2f1c9a8e10")
 

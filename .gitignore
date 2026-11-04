@@ -3,8 +3,15 @@
 __pycache__/
 *.pyc
 
-# Build artifact for Vercel drop (rebuild it with the command in README.md)
+# Old Vercel-drop zip (no longer used: Vercel deploys from GitHub)
 piano-web.zip
 
 # Per-machine Claude Code settings
 .claude/settings.local.json
+
+# Node / Vercel (web/)
+node_modules/
+.vercel/
+# Secrets (MongoDB URI). Never commit these: the repo is public.
+.env
+.env.*

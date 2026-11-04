@@ -1,17 +1,31 @@
 # ESP32 Bluetooth Piano
 
 Play a piano in the browser (PC or phone); the notes go over Bluetooth (BLE) to an
-ESP32, which plays them on a buzzer in real time.
+ESP32, which plays them on a buzzer in real time. A **Studio** mode (a piano roll like
+FL Studio's) lets you compose melodies, play them on the buzzer, and save them to your
+own account.
 
-**Live site: https://piano-web-virid.vercel.app/**
+**Live site: https://piano-web-virid.vercel.app/**. Every push to `main` on GitHub deploys it.
 
 ```
 pyproject.toml       uv project: pins mpremote (the tool that talks to the board over USB)
 buzzer.py            first demo: beeps, scale, siren, Twinkle, Ode to Joy (no Bluetooth). Works.
 esp32/main.py        ESP32 firmware: BLE receiver -> buzzer on GPIO 33. Installed on the board as :main.py (auto-starts).
-web/index.html       the web piano (the whole site is this one file). Deployed and working.
 tools/fake_esp32.py  laptop pretends to be the ESP32 (test the site from a phone, no board needed)
-piano-web.zip        zip of web/ that is dropped on Vercel (build artifact, not in git; see Redeploy)
+web/                 the website = the Vercel project's Root Directory
+  public/            static site (no build step): index.html, css/app.css, js/*.js (ES modules)
+    js/main.js       page wiring: header, Piano/Studio modes, computer keys
+    js/keyboard.js   on-screen piano (touch, glissando, computer keys), used by both modes
+    js/studio.js     Studio: piano roll editor, playback, recording, save/open
+    js/notes.js      note names, frequencies, resultant frequency of overlapping notes
+    js/ble.js        Web Bluetooth link to the ESP32
+    js/sound.js      the single output: ESP32 + optional device sound, metronome
+    js/api.js, ui.js backend calls / login state; dialogs and toasts
+  api/               Vercel serverless functions (Node.js): accounts and melodies
+  lib/               code shared by the functions: MongoDB connection, auth, validation
+  dev-server.mjs     local stand-in for Vercel (`npm run dev`)
+  vercel.json        Vercel config: serve public/, no framework
+  .env.local         MONGODB_URI for local runs (NOT in git; the repo is public)
 README.md            this file: instructions + full project context/log (read it first)
 ```
 
@@ -27,7 +41,8 @@ git clone git@github.com:Pablo-Caballero-Maria/piano.git && cd piano
 uv sync            # creates .venv with mpremote
 ```
 
-The website needs no build step: `web/index.html` is a single self-contained file.
+The website has no build step (plain HTML/CSS/JS modules). The backend needs Node.js 20+;
+see "Run the website locally" below.
 
 ### Put the firmware on the ESP32
 
@@ -61,6 +76,38 @@ advertises as **ESP32-Piano**.
 The buzzer can only play one note at a time: the last key pressed wins, and when you
 let it go, the previous key you're still holding plays again.
 
+The speaker button in the header ("device sound") also plays the notes on the phone/PC.
+
+### Studio (compose melodies)
+
+Open the **Studio** tab (or `…/#studio`). It's a piano roll: **X axis = time** (bars and beats;
+the clock shows the time in seconds), **Y axis = pitch**. Each row is labelled with its note
+and frequency in Hz, from C1 (33 Hz) to B8 (7902 Hz).
+
+- **Draw tool** (pencil): click an empty spot to add a note (it gets the length of the last note
+  you touched), drag a note to move it, and drag its right edge to resize it. Right-click deletes.
+  Shift/Ctrl-click adds notes to the selection, Shift/Ctrl-drag selects with a box, and Ctrl+A
+  selects all. Delete removes the selection, and the arrow keys move it (Shift+↑/↓ = an octave).
+  On a phone: tap to add, drag a note to move it, drag empty space to scroll.
+- **Erase tool**: click/tap or drag over notes to delete them.
+- **Snap** sets the grid (1/16 by default; "Off" for free timing). Use the **BPM** box for the
+  tempo, the magnifier buttons or Ctrl+wheel to zoom, and Ctrl+Z / Ctrl+Y to undo/redo.
+- **Overlapping notes**: the buzzer plays their **resultant frequency**. Adding two equal sine
+  waves gives sin a + sin b = 2·cos((a−b)/2)·sin((a+b)/2), a wave at the **mean** frequency whose
+  volume beats at |f1−f2|. A buzzer can only hold one frequency, so it plays the mean of all
+  sounding notes (C4 262 Hz + E4 330 Hz → 296 Hz). The readout on the right shows it
+  (`C4+E4 → 296 Hz`). The same note struck again right after itself gets a 50 ms gap, so you hear
+  two notes instead of one long one.
+- **Play** (Space) starts at the orange marker; click/drag the bar ruler to move it. Use ⏮ to go
+  back to the start and 🔁 to loop. The metronome ticks on the device speaker only, never the buzzer.
+- **Record** (red ●): playback starts from the marker, and every note you play on the piano below
+  the roll (or the computer keys, or the key column on the left) is added to the melody, snapped
+  to the grid. Existing notes keep playing, so you can layer. One Undo removes the whole take.
+- **Accounts**: press **Log in** to create an account (username + password). Then use **Save**
+  (Ctrl+S) and **My melodies** to open ▶ play, Open (edit), duplicate or delete your saved
+  melodies. Without an account you can still compose; the work in progress is kept in the
+  browser (localStorage) until you save it.
+
 ### Test without the ESP32
 
 ```sh
@@ -71,17 +118,51 @@ receives, with the time since the previous one, and plays it on the laptop speak
 website on **another device** (the phone) and connect, because a browser can't connect to its
 own computer's Bluetooth.
 
-### Redeploy the website after editing `web/index.html`
+### Run the website locally
 
 ```sh
-rm -f piano-web.zip && (cd web && zip -q ../piano-web.zip index.html)
+cd web
+npm install
+echo 'MONGODB_URI=mongodb+srv://<user>:<password>@mycluster.jrnmp.mongodb.net/' > .env.local   # once; never commit it
+npm run dev            # http://localhost:3000 (static files + the api/ functions, like Vercel)
 ```
-1. Go to https://vercel.com/drop and drop/upload `piano-web.zip`.
-2. On the "New Project" page, click **"Deploy to an existing project instead"**.
-3. Pick **`piano-web`** and click **Deploy to piano-web**, so the URL stays the same.
+Web Bluetooth also works on `http://localhost` (a secure context), so you can connect the ESP32
+from the laptop's Chrome too.
+
+### Deploy
+
+The Vercel project **`piano-web`** is connected to the GitHub repo
+`Pablo-Caballero-Maria/piano`. **Every push to `main` deploys to production**
+(https://piano-web-virid.vercel.app/), and pushes to other branches get preview URLs. Project settings:
+- **Root Directory: `web`**. Framework preset "Other"; `web/vercel.json` serves `public/`.
+- **Environment variable `MONGODB_URI`** = the Atlas connection string (optional `MONGODB_DB`,
+  default `piano`). After changing it, redeploy.
 
 The Vercel team is the user's Hobby team, `pablo-caballero-marias-projects`. Vercel sometimes
 asks for an email-code re-authentication, which only the user can do.
+
+### Backend (accounts and melodies)
+
+MongoDB Atlas cluster `mycluster.jrnmp.mongodb.net` (the user's), database **`piano`**. The cluster
+also hosts other projects' databases (`sinophile`, `sinophile_dev`); leave those alone.
+Collections:
+- `users` {username, usernameLower (unique), passwordHash (scrypt), createdAt}
+- `sessions` {tokenHash (SHA-256 of the cookie token), userId, expiresAt (TTL index, 30 days)}
+- `melodies` {userId, name, bpm, notes: [{p: MIDI note, s: start, d: duration (beats)}], noteCount, length, createdAt, updatedAt}
+
+Login is an HttpOnly, Secure, SameSite=Lax cookie `piano_session` holding a random token.
+API (JSON):
+
+| Route | |
+|---|---|
+| `POST /api/auth/register`, `POST /api/auth/login` | `{username, password}` → `{user}` and sets the cookie |
+| `POST /api/auth/logout`, `GET /api/auth/me` | → `{user}` or `{user: null}` |
+| `GET /api/melodies` | the user's melodies, newest first, without notes |
+| `POST /api/melodies` | `{name, bpm, notes}` → `{melody}` (max 5000 notes, 500 melodies per user) |
+| `GET / PUT / DELETE /api/melodies/<id>` | one melody (another user's answers 404) |
+
+The connection string is a secret: it lives only in Vercel's environment variables and
+`web/.env.local` (git-ignored). The repo is public, so never commit it.
 
 ### Troubleshooting
 
@@ -117,17 +198,19 @@ Each write is 2 bytes: the frequency in Hz as a little-endian uint16, where 0 me
 The page sends a write only when the sounding note changes. While one write is in flight,
 it keeps just the newest note, so a backlog can't build up and add delay. The page also sends
 the current state (normally 0) right after connecting.
-The UUIDs and the name `ESP32-Piano` are hard-coded in `esp32/main.py`, `web/index.html` and
-`tools/fake_esp32.py`; change all three together.
+The UUIDs and the name `ESP32-Piano` are hard-coded in `esp32/main.py`, `web/public/js/ble.js` and
+`tools/fake_esp32.py`; change all three together. The Studio uses the same protocol: it sends the
+resultant frequency whenever it changes.
 
 ---
 
 ## Project context (for the next Claude Code session: read this first)
 
 ### Goal
-A class project: a web piano (published with **Vercel drop**, must work on **PC and phone**)
+A class project: a web piano (on **Vercel**, must work on **PC and phone**)
 that sends the notes in real time over the device's **Bluetooth** to an ESP32 nearby, which
-plays them on a buzzer. The site's UI is in English. The user's Claude memory says to start
+plays them on a buzzer. The site's UI is in English. Since 2026-11-04 it also has an FL-Studio-like
+**Studio** mode with user accounts (MongoDB Atlas), and Vercel deploys straight from GitHub. The user's Claude memory says to start
 each session by reading this README and to keep it updated with anything new.
 
 ### Current status (in class, 2026-11-03)
@@ -282,11 +365,35 @@ each session by reading this README and to keep it updated with anything new.
      **`VOLUME = 0.5`** (the committed value). That version was reinstalled as `:main.py`, the
      sizes match the repo (4473 bytes), and after a reset it printed `Advertising as ESP32-Piano`.
 
+9. **2026-11-04**: the user asked for an FL-Studio-like "studio" mode, accounts on MongoDB
+   Atlas, live recording from the piano, and GitHub → Vercel auto-deploys. Done as follows:
+   - `web/index.html` was split into `web/public/` (ES modules, no build step), plus Vercel
+     functions in `web/api/` and shared code in `web/lib/`. The Piano mode behaves as before.
+   - "Overlapping notes play the resultant frequency" = the **arithmetic mean** of the sounding
+     notes' frequencies (the carrier of the summed waves, see Studio above). Notes are stored in
+     beats, so changing the BPM keeps the rhythm.
+   - The emoji icons were replaced by an inline SVG sprite: this laptop's Chrome has no emoji
+     font (they showed as boxes), and Android draws ▶ as a colored emoji.
+   - Tested locally (`npm run dev` + Claude in Chrome): the API with curl (register/login/logout,
+     CRUD, validation, users can't see each other's melodies), editing (add/move/resize/delete,
+     undo/redo), playback timing (C4 then C4+E4 then E4 at 120 BPM: 262 → 296 → 330 Hz switching
+     at exactly 500 ms steps, the 50 ms re-strike gap, stop at the end), recording held keys
+     (snapped, chords recorded, one undo per take), save with the login dialog, list/open/play/
+     duplicate/delete, and phone-sized layouts. The real ESP32 was not available, so the Studio
+     → buzzer path is untested on hardware (it uses the same `send()` as the piano).
+   - The Vercel project `piano-web` (created with Vercel drop) was connected to the GitHub repo,
+     with Root Directory `web` and the `MONGODB_URI` env var.
+   - `esp32/main.py` changed only in two comments (the path of the web code), so the copy
+     installed on the board is still functionally the same.
+
 ### Not verified yet
 - The actual latency on the real board, and whether the connect/disconnect chirps are audible.
 - The fixed connect/disconnect logging in `tools/fake_esp32.py`.
 - The site on an iPhone (Bluefy) or on Windows/macOS.
+- The Studio on the real ESP32 (needs the board, i.e. a class day), and the Studio on the phone
+  with real touch input (tested only at phone sizes with a mouse).
 
 ### Ideas for later
-Recording and playing back melodies, a volume control (a 3rd byte in the protocol), and
-showing the ESP32's connection quality.
+A volume control (a 3rd byte in the protocol), showing the ESP32's connection quality,
+an "arpeggio" option for overlapping notes (cycle through them fast, which sounds more like a
+chord than the mean), sharing melodies between users, and pinch-to-zoom on the roll.
