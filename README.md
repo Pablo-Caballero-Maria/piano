@@ -213,11 +213,12 @@ plays them on a buzzer. The site's UI is in English. Since 2026-11-04 it also ha
 **Studio** mode with user accounts (MongoDB Atlas), and Vercel deploys straight from GitHub. The user's Claude memory says to start
 each session by reading this README and to keep it updated with anything new.
 
-### Current status (in class, 2026-11-03)
+### Current status (2026-11-04)
 | Part | Status |
 |---|---|
 | `buzzer.py` on the real ESP32 | ✅ The user confirmed it "works perfectly" on 2026-10-28 (so the buzzer is **passive**) |
-| Website on Vercel | ✅ Live, latest version deployed |
+| Website on Vercel | ✅ Live. Since 2026-11-04 Vercel deploys from GitHub (`main` → production; Root Directory `web`, env `MONGODB_URI` set by the user) |
+| Studio + accounts | ✅ Deployed (commit 36c7d36). The live API reaches Atlas (`/api/auth/me` 200, `/api/melodies` 401 logged out); server files like `lib/` and `.env.local` answer 404. Tested in Chrome on localhost; real phone + ESP32 test: see History 9 |
 | Piano UI (keys, glissando, keyboard, octaves) | ✅ Tested on the live site with Claude in Chrome |
 | BLE from the website to a receiver | ✅ Tested end to end: Android phone → laptop running `fake_esp32.py` |
 | `esp32/main.py` on the real ESP32 | ✅ Starts with no changes on MicroPython 1.29; the Redmi 12 connects (LED on GPIO 2 lights), and every note arrives with the right frequency and drives PWM on D33 (verified with a logging copy) |
