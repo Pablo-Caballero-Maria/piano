@@ -118,8 +118,8 @@ function render() {
 // ---- The class dialog ------------------------------------------------------------------------
 function initDialog() {
   $("classBtn").onclick = () => {
+    $("classDlg").showModal(); // first: the lists only draw themselves into an open dialog
     renderDialog();
-    $("classDlg").showModal();
     if (link.where() === "online") link.lessons();
     if (api.isTeacher() && link.where() === "classroom") refreshPC();
   };
