@@ -80,19 +80,35 @@ def _auth(api_key: str) -> tuple[str, str]:
     return split_key(api_key)
 
 
-async def publish(http: httpx.AsyncClient, api_key: str, chan: str, name: str, data: Any) -> None:
+def _as(client_id: str | None) -> dict[str, str]:
+    """Requests made with the API key, identified as client_id: an app can require identified
+    clients on lesson channels (Ably error 40161 otherwise)."""
+    return {"X-Ably-ClientId": base64.b64encode(client_id.encode()).decode()} if client_id else {}
+
+
+async def publish(
+    http: httpx.AsyncClient, api_key: str, chan: str, name: str, data: Any, client_id: str | None = None
+) -> None:
     r = await http.post(
         f"{REST}/channels/{quote(chan, safe='')}/messages",
         auth=_auth(api_key),
+        headers=_as(client_id),
         json={"name": name, "data": json.dumps(data), "encoding": "json"},
         timeout=10,
     )
     r.raise_for_status()
 
 
-async def presence(http: httpx.AsyncClient, api_key: str, chan: str) -> list[dict[str, Any]]:
+async def presence(
+    http: httpx.AsyncClient, api_key: str, chan: str, client_id: str | None = None
+) -> list[dict[str, Any]]:
     """Who is in a lesson's channel: [{clientId, data}]."""
-    r = await http.get(f"{REST}/channels/{quote(chan, safe='')}/presence", auth=_auth(api_key), timeout=10)
+    r = await http.get(
+        f"{REST}/channels/{quote(chan, safe='')}/presence",
+        auth=_auth(api_key),
+        headers=_as(client_id),
+        timeout=10,
+    )
     r.raise_for_status()
     out = []
     for p in r.json():

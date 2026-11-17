@@ -149,12 +149,16 @@ Vercel serves `web/public` and the function `api/index.py` (FastAPI): the same R
 `class:<name>`, everyone may follow lessons and enter their presence) and `/api/live`. It deploys
 from GitHub on every push to `main`.
 
-**Pending (needs the Vercel and Ably dashboards):** create an Ably app and API key; in Vercel's
-project settings set **Root Directory = repository root** (the root `vercel.json` then applies, and
-`web/vercel.json` must be deleted) and the environment variables `PIANO_DATA_KEY` (the same as the
-PCs), `MONGODB_URI`, `ABLY_API_KEY`. Until then Vercel keeps serving `web/` statically (the page
-works as a standalone piano; accounts and online lessons need the API). Put `ABLY_API_KEY` in the
-PCs' `.env` too, for the classroom relay.
+Ably: the app **piano-esp32** has a key **piano-server** (publish, subscribe, presence, channel
+metadata) for the servers; it's in the PCs' `.env` (ABLY_API_KEY). The app requires *identified*
+clients on lesson channels, so the PC's REST calls identify as the lesson's teacher
+(`X-Ably-ClientId`) and browsers get tokens with their username as clientId.
+
+**Pending (Vercel dashboard):** in the project settings, set **Root Directory** to empty (the
+repository root: the root `vercel.json` then applies; afterwards delete `web/vercel.json`) and add
+the environment variables `PIANO_DATA_KEY` (the same as the PCs'), `MONGODB_URI` and
+`ABLY_API_KEY` (all three are in `.env`). Until then Vercel serves `web/` statically (the page works
+as a standalone piano; accounts and online lessons need the API).
 
 ## Development
 
@@ -231,7 +235,8 @@ user said the Claude in Chrome extension may be used to set up Ably and Vercel's
 | Board ⇄ PC over MQTT | ✅ Firmware's MQTT client + aiomqtt through amqtt (tests) and through Mosquitto with the deploy ACL (manual check) |
 | `deploy/setup.sh` | 🟡 Written, syntax-checked; not run yet (needs sudo: the user runs it) |
 | Real board with the new firmware | ⬜ The board is back with the teacher. It still has the OLD files and **`main.py` renamed to `main_off.py`** (from a memory test): `uv run tools/board.py setup` fixes it |
-| Vercel (root dir, env vars) and Ably (app, key) | ⬜ Needs the dashboards (Chrome extension wasn't connected) |
+| Ably | ✅ Key `piano-server` created; the PC's relay publishes and reads presence against the real Ably |
+| Vercel (root dir, env vars) | ⬜ The settings page wouldn't load in the automated Chrome; secrets must be typed by the user anyway |
 
 ### Hardware
 - ESP32 dev board, **MicroPython v1.29.0** (`ESP32_GENERIC`), borrowed from the teacher; its own

@@ -33,6 +33,7 @@ async def test_the_bridge_publishes_the_latest_of_each_kind_and_lists_followers(
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls.append((request.method, request.url.raw_path.decode(), request.content))
+        assert base64.b64decode(request.headers["X-Ably-ClientId"]) == b"Teach"  # identified as the teacher
         if request.url.raw_path.endswith(b"/presence"):
             return httpx.Response(
                 200,

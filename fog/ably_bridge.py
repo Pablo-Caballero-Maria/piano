@@ -31,7 +31,9 @@ class AblyBridge:
         self.api_key = api_key
         self.online = online
         self.http = http or httpx.AsyncClient()
-        self._pending: dict[tuple[str, str], Any] = {}  # (channel, name) -> latest data
+        self._pending: dict[
+            tuple[str, str], tuple[str, Any]
+        ] = {}  # (channel, name) -> (teacher, latest data)
         self._wake = asyncio.Event()
         self._live: str | None = None
         self._followers: list[dict[str, Any]] = []
@@ -43,7 +45,7 @@ class AblyBridge:
             self._live = teacher if data.get("live") else None
             if not self._live:
                 self._followers = []
-        self._pending[(ably.channel(teacher), name)] = data
+        self._pending[(ably.channel(teacher), name)] = (teacher, data)
         self._wake.set()
 
     def followers(self, teacher: str) -> list[dict[str, Any]]:
@@ -52,10 +54,10 @@ class AblyBridge:
 
     async def _flush(self) -> None:
         while self._pending and self.online():
-            (chan, name), data = next(iter(self._pending.items()))
+            (chan, name), (teacher, data) = next(iter(self._pending.items()))
             del self._pending[(chan, name)]
             try:
-                await ably.publish(self.http, self.api_key, chan, name, data)
+                await ably.publish(self.http, self.api_key, chan, name, data, client_id=teacher)
             except Exception as e:
                 log.warning("Ably publish failed: %r", e)
                 return
@@ -64,7 +66,9 @@ class AblyBridge:
         if not self._live or not self.online():
             return
         try:
-            members = await ably.presence(self.http, self.api_key, ably.channel(self._live))
+            members = await ably.presence(
+                self.http, self.api_key, ably.channel(self._live), client_id=self._live
+            )
         except Exception as e:
             log.warning("Ably presence failed: %r", e)
             return
