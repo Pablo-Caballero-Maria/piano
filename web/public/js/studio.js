@@ -1,7 +1,9 @@
 // Studio mode: a piano roll like FL Studio's. X = time (beats), Y = pitch (frequency).
 // Draw notes with the mouse/finger, play them, record new ones live from the piano,
-// and save melodies to the user's account. Where notes overlap, the buzzer plays
-// their resultant frequency (see resultant() in notes.js).
+// and save melodies to the user's account, private or public. Where notes overlap, the
+// buzzer plays their resultant frequency (see resultant() in notes.js).
+// In a lesson, the teacher's piano roll is shared (studioState(), onStudioChange()) and
+// students can follow it read-only (followTeacher()).
 import { isBlack, noteName, freqOf, exactFreq, resultant } from "./notes.js";
 import { output, unlockAudio, click as metronomeClick } from "./sound.js";
 import { Keyboard } from "./keyboard.js";
@@ -23,7 +25,7 @@ const DEFAULT_NAME = "Untitled melody";
 
 // ---- State ---------------------------------------------------------------------
 // melody.notes: {id, p: MIDI note, s: start (beats), d: duration (beats), rec?: being recorded}
-let melody = { id: null, name: "", bpm: 120, notes: [] };
+let melody = { id: null, name: "", bpm: 120, notes: [], public: false, owner: null };
 let dirty = false;             // changed since the last save/open
 let uid = 1;                   // ids for notes on this page (not saved)
 const sel = new Set();         // selected note ids
@@ -50,6 +52,16 @@ let previewP = 0, previewToken = 0;
 // DOM
 let roll, grid, notesLayer, pkeys, rulerLabels, playheadEl, rulerHead, cursorEl, selBox, kb;
 const noteEls = new Map();
+
+// Lessons: who listens to changes (class.js), and the teacher's roll this page follows
+const studioListeners = new Set();
+let following = null;      // {teacher state…} while following the teacher's piano roll
+let ownWork = null;        // my melody and editor state, put back when I stop following
+let listScope = "mine";
+
+function notify(kind) {
+  for (const fn of studioListeners) fn(kind);
+}
 
 // ---- Helpers -----------------------------------------------------------------------
 const noteById = (id) => melody.notes.find((n) => n.id === id);
@@ -218,6 +230,7 @@ function changed() {
   updateExtent();
   renderSaveState();
   scheduleDraft();
+  notify("edit");
 }
 
 function addNote(p, s, d) {
@@ -288,6 +301,7 @@ function eraseAt(n) {
 }
 
 function onGridDown(e) {
+  if (following) return; // the teacher's roll is read-only
   if (drag || e.button === 1) return; // one gesture at a time; middle button = browser's own
   unlockAudio();
   const el = e.target.closest(".note");
@@ -501,7 +515,7 @@ function mix() {
   if (!active) return;
   const pitches = [...new Set([...playPitches, ...live.keys(), ...(previewP ? [previewP] : [])])].sort((a, b) => a - b);
   const f = resultant(pitches);
-  output(f);
+  output(f, pitches);
   const key = pitches.join(",");
   if (key === lastMixKey) return;
   const before = new Set(lastMixKey ? lastMixKey.split(",").map(Number) : []);
@@ -691,6 +705,7 @@ function play() {
   renderTransport();
   tick();
   frame();
+  notify("transport");
 }
 
 function stop() {
@@ -704,6 +719,7 @@ function stop() {
   mix();
   drawPlayhead();
   renderTransport();
+  notify("transport");
 }
 
 const togglePlay = () => (playing ? stop() : play());
@@ -719,6 +735,7 @@ function seek(b) {
     tick();
   }
   drawPlayhead();
+  notify("transport");
 }
 
 // ---- Recording from the piano ----------------------------------------------------------
@@ -783,6 +800,13 @@ function renderSaveState() {
   const s = $("sSaveState");
   s.textContent = dirty ? "● Unsaved" : melody.id ? "✓ Saved" : "";
   s.dataset.state = dirty ? "dirty" : "saved";
+  const pub = $("sPublic");
+  const mine = !melody.owner || melody.owner === api.currentUser()?.username;
+  pub.setAttribute("aria-pressed", !!melody.public);
+  pub.innerHTML = icon(melody.public ? "globe" : "lock");
+  pub.disabled = !mine;
+  pub.title = !mine ? `Public melody by ${melody.owner}: everyone can edit it; only they can make it private`
+    : melody.public ? "Public: everyone can see and edit it" : "Private: only you see it";
 }
 
 let draftTimer = 0;
@@ -794,7 +818,10 @@ function scheduleDraft() {
 /** Keep the work in progress in this browser, so a reload doesn't lose it. */
 function saveDraft() {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ id: melody.id, name: melody.name, bpm: melody.bpm, notes: plainNotes(), dirty }));
+    if (following) return; // the teacher's roll isn't my work
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+      id: melody.id, name: melody.name, bpm: melody.bpm, notes: plainNotes(), public: melody.public, owner: melody.owner, dirty,
+    }));
   } catch {}
 }
 
@@ -802,17 +829,20 @@ function loadDraft() {
   try {
     const d = JSON.parse(localStorage.getItem(DRAFT_KEY));
     if (d && Array.isArray(d.notes)) {
-      load({ id: d.id ?? null, name: d.name ?? "", bpm: d.bpm || 120, notes: d.notes });
+      load({ id: d.id ?? null, name: d.name ?? "", bpm: d.bpm || 120, notes: d.notes, public: !!d.public, owner: d.owner ?? null });
       dirty = !!d.dirty;
       renderSaveState();
     }
   } catch {}
 }
 
-/** Put a melody {id, name, bpm, notes} in the editor (clears undo history). */
+/** Put a melody {id, name, bpm, notes, public?, owner?} in the editor (clears undo history). */
 function load(m) {
   stop();
-  melody = { id: m.id, name: m.name, bpm: m.bpm, notes: m.notes.map(({ p, s, d }) => ({ id: uid++, p, s, d })) };
+  melody = {
+    id: m.id, name: m.name, bpm: m.bpm, notes: m.notes.map(({ p, s, d }) => ({ id: uid++, p, s, d })),
+    public: !!m.public, owner: m.owner ?? null,
+  };
   sel.clear();
   undoStack = [];
   redoStack = [];
@@ -827,6 +857,7 @@ function load(m) {
   drawPlayhead();
   scrollToNotes();
   saveDraft();
+  notify("load");
 }
 
 /** Scroll so the melody's notes (or the middle of the keyboard) are in view. */
@@ -848,14 +879,15 @@ async function okToDiscard() {
 
 async function newMelody() {
   if (!(await okToDiscard())) return;
-  load({ id: null, name: "", bpm: melody.bpm, notes: [] });
+  load({ id: null, name: "", bpm: melody.bpm, notes: [], public: false, owner: null });
 }
 
 async function save() {
   if (recording) stop();
-  if (!api.currentUser() && !(await openAuth("Log in or create an account to save your melodies on the ESP32."))) return;
+  if (following) return;
+  if (!api.currentUser() && !(await openAuth("Log in or create an account to save your melodies."))) return;
   const name = $("sName").value.trim() || DEFAULT_NAME;
-  const payload = { name, bpm: melody.bpm, notes: plainNotes() };
+  const payload = { name, bpm: melody.bpm, notes: plainNotes(), public: melody.public };
   const btn = $("sSave");
   btn.disabled = true;
   try {
@@ -872,6 +904,8 @@ async function save() {
     }
     melody.id = m.id;
     melody.name = m.name;
+    melody.public = m.public;
+    melody.owner = m.owner;
     $("sName").value = m.name;
     dirty = false;
     renderSaveState();
@@ -886,22 +920,32 @@ async function save() {
 }
 
 async function openList() {
-  if (!api.currentUser() && !(await openAuth("Log in to see the melodies you saved on the ESP32."))) return;
-  const loading = refreshList(); // starts the Bluetooth connection first, while this click still counts
+  if (!api.currentUser() && !(await openAuth("Log in to see your melodies and the public ones."))) return;
   $("listDlg").showModal();
-  await loading;
+  await refreshList();
+}
+
+function setListScope(scope) {
+  listScope = scope;
+  for (const b of document.querySelectorAll(".list-tabs [data-scope]")) b.setAttribute("aria-pressed", b.dataset.scope === scope);
+  refreshList();
 }
 
 async function refreshList() {
   const ul = $("listItems");
   $("listEmpty").hidden = true;
-  ul.innerHTML = `<li class="muted">Loading from the ESP32…</li>`;
+  ul.innerHTML = `<li class="muted">Loading…</li>`;
   try {
-    const list = await api.listMelodies();
+    const list = await api.listMelodies(listScope);
     ul.innerHTML = "";
+    $("listEmpty").textContent = listScope === "mine"
+      ? "No melodies yet. Compose one in the Studio and press Save."
+      : "No public melodies yet. Make one of yours public with the lock button next to Save.";
     $("listEmpty").hidden = list.length > 0;
     for (const m of list) ul.append(listRow(m));
-    $("listFree").textContent = api.freeKB == null ? "" : `Stored on the ESP32 · ${api.freeKB} KB free`;
+    const cfg = await api.config();
+    $("listFree").textContent = cfg.mode === "classroom" ? "Kept on the classroom board, and in the cloud when it syncs."
+      : cfg.mode === "online" ? "Kept in the cloud." : "";
   } catch (err) {
     ul.innerHTML = "";
     const li = document.createElement("li");
@@ -927,7 +971,10 @@ function listRow(m) {
   const b = document.createElement("b");
   b.textContent = m.name;
   const small = document.createElement("small");
-  small.textContent = `${m.noteCount} notes · ${fmtTime((m.length * 60) / m.bpm)} · ${m.bpm} BPM · ${ago(m.updatedAt)}`;
+  const mine = m.owner === api.currentUser()?.username;
+  const who = mine ? (m.public ? "public · " : "") : `by ${m.owner} · `;
+  const edited = m.editedBy && m.editedBy !== m.owner ? ` (edited by ${m.editedBy})` : "";
+  small.textContent = `${who}${m.noteCount} note${m.noteCount === 1 ? "" : "s"} · ${fmtTime((m.length * 60) / m.bpm)} · ${m.bpm} BPM · ${ago(m.updatedAt)}${edited}`;
   info.append(b, small);
 
   const btn = (label, title, fn, cls = "") => {
@@ -959,9 +1006,9 @@ function listRow(m) {
     info,
     btn(icon("play"), "Open and play", () => openMelody(m.id, true)),
     btn("Open", "Open to edit", () => openMelody(m.id, false), "primary"),
-    btn(icon("copy"), "Duplicate", () => duplicate(m.id)),
-    del,
+    btn(icon("copy"), "Make my own copy", () => duplicate(m.id)),
   );
+  if (mine) li.append(del); // only the owner can delete (the server checks too)
   return li;
 }
 
@@ -978,7 +1025,7 @@ async function openMelody(id, andPlay) {
 async function duplicate(id) {
   try {
     const m = await api.getMelody(id);
-    const copy = await api.createMelody({ name: `${m.name} (copy)`.slice(0, 80), bpm: m.bpm, notes: m.notes });
+    const copy = await api.createMelody({ name: `${m.name} (copy)`.slice(0, 80), bpm: m.bpm, notes: m.notes, public: false });
     toast(`Saved "${copy.name}"`);
     refreshList();
   } catch (err) { toast(err.message, "error"); }
@@ -1017,6 +1064,15 @@ function initToolbar() {
   $("sNew").onclick = newMelody;
   $("sOpen").onclick = openList;
   $("sSave").onclick = save;
+  $("sPublic").onclick = () => {
+    melody.public = !melody.public;
+    dirty = true;
+    renderSaveState();
+    scheduleDraft();
+    toast(melody.public ? "Public: everyone will see and can edit it (press Save)" : "Private: only you (press Save)");
+  };
+  for (const b of document.querySelectorAll(".list-tabs [data-scope]")) b.onclick = () => setListScope(b.dataset.scope);
+  $("sFollowStop").onclick = () => followTeacher(null);
   $("sListClose").onclick = () => $("listDlg").close();
   $("sStart").onclick = () => seek(0);
   $("sPlay").onclick = togglePlay;
@@ -1105,6 +1161,9 @@ export function panic() {
 /** Studio keyboard shortcuts; returns true if the key was used. */
 export function studioKeyDown(e) {
   const mod = e.ctrlKey || e.metaKey;
+  if (following && (mod || ["Delete", "Backspace", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code))) {
+    return false; // read-only while following the teacher
+  }
   if (mod && e.code === "KeyZ") { e.preventDefault(); e.shiftKey ? redo() : undo(); return true; }
   if (mod && e.code === "KeyY") { e.preventDefault(); redo(); return true; }
   if (mod && e.code === "KeyA") { e.preventDefault(); selectOnly(melody.notes); return true; }
@@ -1140,3 +1199,75 @@ export function studioKeyDown(e) {
 }
 
 export function studioKeyUp(e) { kb.keyUp(e); }
+
+// ---- Lessons -----------------------------------------------------------------------------
+/** fn(kind) after an edit ("edit"), a play/stop/seek ("transport") or opening a melody ("load"). */
+export const onStudioChange = (fn) => studioListeners.add(fn);
+
+/** What a live teacher shares: the melody (notes as text), the playhead, playing or not. */
+export function studioState() {
+  return {
+    melody: { name: melody.name || DEFAULT_NAME, bpm: melody.bpm, notes: api.encodeNotes(plainNotes()) },
+    playhead: Math.round(pos() * 1000) / 1000,
+    playing,
+  };
+}
+
+/** One line about what I'm doing, for the teacher's list. */
+export function studioDetail() {
+  if (following) return "following the teacher's piano roll";
+  return `${playing ? "playing" : "editing"} "${melody.name || DEFAULT_NAME}"`;
+}
+
+let lastFollowKey = "";
+/**
+ * Show the live teacher's piano roll, read-only, in step with their playback:
+ * st = {teacher, melody: {name, bpm, notes: "p:s:d …"}, playhead, playing}.
+ * null goes back to my own melody, as I left it.
+ */
+export function followTeacher(st) {
+  if (!st) {
+    if (!following) return;
+    following = null;
+    lastFollowKey = "";
+    $("sFollowBar").hidden = true;
+    document.body.classList.remove("following");
+    const own = ownWork;
+    ownWork = null;
+    if (own) {
+      load(own.melody);
+      dirty = own.dirty;
+      renderSaveState();
+    }
+    return;
+  }
+  if (!following) {
+    ownWork = {
+      melody: { id: melody.id, name: melody.name, bpm: melody.bpm, notes: plainNotes(), public: melody.public, owner: melody.owner },
+      dirty,
+    };
+    $("sFollowBar").hidden = false;
+    document.body.classList.add("following");
+  }
+  following = st;
+  $("sFollowText").textContent = `Following ${st.teacher || "the teacher"}'s piano roll (read-only)`;
+  const m = st.melody || {};
+  const key = JSON.stringify([m.name, m.bpm, m.notes]);
+  if (key !== lastFollowKey) {
+    lastFollowKey = key;
+    load({ id: null, name: m.name || "", bpm: m.bpm || 120, notes: api.decodeNotes(m.notes || "") });
+  }
+  const at = Number(st.playhead) || 0;
+  if (st.playing) {
+    if (playing) { anchorBeat = at; anchorTime = performance.now(); } else { cursor = at; play(); }
+  } else {
+    stop();
+    cursor = at;
+    drawPlayhead();
+  }
+}
+
+/** Show on the studio keyboard what the live teacher is playing. */
+export function setTeacherNotes(midi) {
+  kb?.setTeacher(midi);
+}

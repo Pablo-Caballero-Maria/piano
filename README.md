@@ -1,470 +1,280 @@
-# ESP32 Bluetooth Piano
+# Piano lessons with an ESP32 buzzer
 
-Play a piano in the browser (PC or phone); the notes go over Bluetooth (BLE) to an
-ESP32, which plays them on a buzzer in real time. A **Studio** mode (a piano roll like
-FL Studio's) lets you compose melodies, play them on the buzzer, and save them to your
-own account. **Accounts and melodies are stored on the ESP32 itself** (a btree database in its
-flash), reached over the same Bluetooth link: there is no server-side backend.
-
-**Live site: https://piano-web-virid.vercel.app/**. Every push to `main` on GitHub deploys it.
+A web piano for piano lessons. The teacher and every student use their phone (or PC). The
+teacher plays — on the piano or in the **Studio**, a piano roll like FL Studio's — and the notes
+sound on a buzzer driven by an ESP32 in the classroom while every student sees them live on their
+own phone. Everyone can also practise alone (piano and studio), save melodies privately or share
+them publicly, and follow lessons from home over the internet.
 
 ```
-pyproject.toml       uv project: pins mpremote (the tool that talks to the board over USB)
-buzzer.py            first demo: beeps, scale, siren, Twinkle, Ode to Joy (no Bluetooth). Works.
-esp32/main.py        ESP32 firmware: BLE receiver -> buzzer on GPIO 33, plus the storage link. Installed on the board as :main.py (auto-starts).
-esp32/store.py       accounts + melodies database on the board's flash (btree file :piano.db). Installed as :store.py.
-tools/fake_esp32.py  laptop pretends to be the ESP32 (test the site from a phone, no board needed)
-web/                 the website = the Vercel project's Root Directory
-  public/            static site (no build step): index.html, css/app.css, js/*.js (ES modules)
-    js/main.js       page wiring: header, Piano/Studio modes, computer keys
-    js/keyboard.js   on-screen piano (touch, glissando, computer keys), used by both modes
-    js/studio.js     Studio: piano roll editor, playback, recording, save/open
-    js/notes.js      note names, frequencies, resultant frequency of overlapping notes
-    js/ble.js        Web Bluetooth link to the ESP32: notes + storage requests
-    js/sound.js      the single output: ESP32 + optional device sound, metronome
-    js/api.js        accounts/melodies on the ESP32 (login session, password key, note encoding)
-    js/ui.js         dialogs and toasts
-  vercel.json        Vercel config: serve public/ as a static site, no framework
-README.md            this file: instructions + full project context/log (read it first)
+ phones (teacher, students)  ── HTTPS + WebSocket ──►  teacher's PC  ── MQTT/TLS ──►  ESP32 + buzzer
+   on the classroom router                              (fog node)                   (classroom router)
+                                                           │  when online
+                       GitHub (code) ◄── updates ──────────┤
+                       MongoDB Atlas ◄── sync ─────────────┤
+                       Ably (live lessons) ◄── relay ──────┘
+ phones at home  ── HTTPS ──►  Vercel (same website + API on Atlas)  ── Ably ──►  live lessons
 ```
 
-## Use it
+- **The teacher's PC** is the *fog node*: it serves the website to the phones in the classroom
+  (nginx, HTTPS for `piano-esp32.duckdns.org`), runs the live class, and drives the board over
+  MQTT. It keeps **no database**: accounts and melodies live on the board. Whenever it has
+  internet it updates itself and the board from GitHub (after testing the new version), syncs the
+  board with MongoDB Atlas, and relays the lesson to Ably for students at home.
+- **The board** (ESP32, MicroPython) joins the classroom WiFi, plays the buzzer and stores the
+  class's accounts and melodies — encrypted: it can't read them.
+- **Vercel** serves the same website for everyone, with the same API on Atlas, plus live lessons
+  over the internet with Ably.
+- Everything is **encrypted in transit** (HTTPS, WSS, MQTT over TLS) and **at rest** (every stored
+  record is sealed with AES-256-GCM using a system key that only the teacher PCs and Vercel hold).
 
-### Setup (laptop)
+```
+pianocore/   shared by the PC and Vercel: crypto, models, auth, repositories (board / Atlas), the
+             rules (service.py), board⇄Atlas sync, the REST API, Ably helpers
+fog/         the teacher's PC: app.py (FastAPI), classroom.py (live class), buzzer_queue.py,
+             board.py (MQTT link), sync_service.py, updater.py (GitHub), internet.py (DuckDNS),
+             ably_bridge.py, simboard.py (simulated board), settings.py (.env); `python -m fog`
+esp32/       the board's firmware: main.py (boot, rollback, update mode), app.py, mqtt.py (own
+             MQTT client), kv.py (encrypted-blob store), tone.py, config.py, updater.py, ota.py
+api/         the Vercel function (index.py): the API on Atlas, Ably tokens, live lessons
+web/public/  the website (plain ES modules, no build): js/link.js (class link: WebSocket or
+             Ably), js/class.js (lessons, buzzer queue, students), js/studio.js, js/api.js…
+deploy/      nginx, Mosquitto, certbot (DuckDNS DNS challenge) and systemd setup: `sudo deploy/setup.sh`
+tools/       board.py (install the board over USB), fake_board.py (pretend board), sim/ (lets the
+             board's MicroPython code run on CPython)
+tests/       core/, fog/, board/ (also run ON the board), web/ (node), integration (real broker)
+buzzer.py    the very first demo (scales and tunes, no network), run with mpremote
+```
 
-You need [uv](https://docs.astral.sh/uv/) and an ESP32 flashed with
-[MicroPython](https://micropython.org/download/ESP32_GENERIC/).
+## A class
+
+1. Everyone joins the classroom WiFi (the router) and opens **https://piano-esp32.duckdns.org**.
+2. **Create an account** (Log in → Create account), choosing **student** or **teacher**. The
+   password never leaves the phone (it sends a PBKDF2 key). An account made on any classroom PC or
+   online works everywhere once the PC has synced.
+3. The class is everyone connected to the teacher's PC. The **Class** button opens the class panel.
+4. The teacher presses **Start the lesson** (in the mode they're in: piano or studio):
+   - piano: every student sees the teacher's notes on their keyboard (amber marks) and in the bar;
+   - studio: the students' studio shows the teacher's piano roll, read-only and in step with the
+     teacher's playback; their own melody comes back when the lesson ends ("Back to my melody");
+   - the buzzer plays the teacher; the teacher can **Give buzzer** to a student and take it back.
+5. The teacher's panel lists everyone: their mode, what they're playing, what they're editing
+   (and students following from home, marked "from home").
+6. Without a lesson, anyone can **Ask for the buzzer**: they queue, first come first served, and
+   the first one plays. Teachers administer the queue (move up, remove, **Next**).
+7. Melodies (Studio → Save) are **private** (lock) or **public** (globe): everyone can see and edit
+   a public melody; only its owner deletes it or makes it private. "Melodies" has *Mine* and
+   *Public* tabs; the list says who made each and who edited it last.
+
+Online (Vercel, with internet): the same website and accounts; the Class panel lists **live
+lessons** (online ones, and classroom lessons relayed by their PC) to join; teachers can give a
+lesson from home. There's no buzzer online.
+
+The piano keyboard: tap/click, slide for a glissando, or computer keys `A W S E D F T G Y H U J K
+O L P` (`Z`/`X` octave). The Studio: draw/erase notes, snap, BPM, zoom, undo/redo, loop,
+metronome, record from the piano; overlapping notes play their **resultant frequency** (the mean:
+sin a + sin b = 2·cos((a−b)/2)·sin((a+b)/2)), because the buzzer has one voice. Details are in the
+code comments of `web/public/js/studio.js`.
+
+## Setting up the teacher's PC
+
+On the PC (Arch Linux here; any Linux with systemd works):
 
 ```sh
 git clone git@github.com:Pablo-Caballero-Maria/piano.git && cd piano
-uv sync            # creates .venv with mpremote
+uv sync                                   # Python 3.12+, all dependencies
+cp .env.example .env && chmod 600 .env    # then fill it in (see below)
+sudo pacman -S nginx mosquitto certbot curl
+sudo deploy/setup.sh                      # certificate, Mosquitto, nginx, the piano-fog service
+uv run python -m fog check                # checks the settings and what's reachable
 ```
 
-The website is static, with no build step (plain HTML/CSS/JS modules).
+`.env` (never committed: the repository is public). **PIANO_DATA_KEY**: create it once with
+`uv run python -m fog keygen` and use the same one on every teacher PC and on Vercel, or they
+can't read each other's data (and keep it: data sealed with a lost key is gone). Also the DuckDNS
+name and token, the classroom WiFi (for the board), MONGODB_URI and ABLY_API_KEY (optional:
+without them the class works offline only). `setup.sh` generates the MQTT passwords.
 
-### Put the firmware on the ESP32
+What `deploy/setup.sh` does: points `piano-esp32.duckdns.org` at the PC's **classroom** address
+(phones reach it on the router); gets a Let's Encrypt certificate with a DNS challenge through
+DuckDNS (works on a private address) and enables its renewal; configures Mosquitto (port 1883 on
+localhost for the app, 8883 with TLS for the boards, a user per board that may only use its own
+topics) and nginx (HTTPS on 443 in front of the app, which serves everything: the repository is in
+a home folder nginx can't read); installs the app as the `piano-fog` service (restarts on failure
+and after updates). Logs: `journalctl -u piano-fog -f`.
 
-Wire it the same as before, with the buzzer's **S** pin on **D33**.
+The PC keeps the DuckDNS record on its current classroom address. If the router blocks public DNS
+answers that point at private addresses ("DNS rebinding protection"), add a local DNS entry on the
+router, or set `PIANO_SERVER_IP` for the board.
+
+### Trying it without the hardware
+
+- `uv run python -m fog demo` — the whole PC app with a **simulated board** (the board's real
+  storage code, in-process), on http://localhost:8080. No broker, nginx or .env needed. The
+  buzzer's notes are logged. Open it in two browser profiles to be teacher and student.
+- `uv run tools/fake_board.py` — a pretend board for a real setup: the board's firmware on this
+  laptop, connected to Mosquitto (127.0.0.1:1883, or `--tls` on 8883 like the real one), playing
+  the buzzer on the laptop's speaker (pacat).
+
+## The board
+
+Wiring: the buzzer module's **S → D33 (GPIO 33)**, **− → GND**, middle pin → **3V3**. The board
+sits loosely in the breadboard: press it in (or wire straight to its pins), or the buzzer goes
+silent after a note or two (History 8).
 
 ```sh
-# store.py (the database code) must be on the board first, in every case:
-uv run mpremote connect /dev/ttyUSB0 cp esp32/store.py :store.py
-
-# Quick test (stops when you press Ctrl-C or unplug); prints "Connected"/"Disconnected"
-# and every storage request ("Storage: login -> ok"):
-uv run mpremote connect /dev/ttyUSB0 run esp32/main.py
-
-# Or install it so it starts by itself whenever the board gets power
-# (works from a phone charger / power bank, no laptop needed):
-uv run mpremote connect /dev/ttyUSB0 cp esp32/store.py :store.py + cp esp32/main.py :main.py + reset
-
-# Back up / restore everyone's accounts and melodies (the database file):
-uv run mpremote connect /dev/ttyUSB0 cp :piano.db piano.db
-uv run mpremote connect /dev/ttyUSB0 cp piano.db :piano.db + reset
-
-# Remove it again (back to the teacher's board as it was; this ERASES the melodies):
-uv run mpremote connect /dev/ttyUSB0 rm :main.py + rm :store.py + rm :piano.db
+uv run tools/board.py setup     # USB: firmware + its tests + /config.json from .env, runs the tests, restarts
+uv run tools/board.py test      # the board's test suite, on the board
+uv run tools/board.py log       # what it prints (Ctrl-] to quit)
 ```
 
-When it starts, the buzzer plays a short rising "ready" chirp (C6-E6-G6) and the board
-advertises as **ESP32-Piano**.
+After `setup` the board joins the classroom WiFi, sets its clock (NTP, or the Date header of the
+PC's port 80 when the classroom has no internet: TLS checks certificate dates), connects to the
+PC's broker over TLS (checking the certificate against Let's Encrypt's roots in `esp32/ca.pem`),
+and chirps (C6-E6-G6 at start, G6-C7 connected, C7-G6 lost). From then on **the PC updates it**:
+when a new version changes the board's files, the PC sends `piano/<id>/ota`; the board restarts
+into update mode (only `ota.py` runs, so TLS has memory), downloads the changed files from
+`https://<PC>/board/<sha>/…`, checks each one's git hash, runs **its own test suite** on the new
+code, and installs it only if every test passes. A new version that crashes 3 times before
+reaching the PC, or an install cut short by a power loss, is rolled back (`esp32/main.py`).
 
-### Play
+Memory: MicroPython 1.29's Python heap starts at 56 KB and can only grow by doubling, taking C
+memory WiFi and TLS need; compiling big `.py` files on the board fragments it. So the firmware is
+small (no Bluetooth, no web server: the PC does that) and stores only encrypted blobs.
 
-1. Open the live site in **Chrome** (Android, Windows, macOS, Linux) or **Edge**.
-   iPhone/iPad: Safari can't do Bluetooth; use the free **Bluefy** browser app.
-   On Android, Bluetooth (and sometimes Location) must be turned on.
-2. Press **Connect ESP32** and pick **ESP32-Piano**. The ESP32 chirps up (G6→C7), and its LED
-   lights up if the board has one on GPIO 2. On disconnect it chirps down.
-3. Play: tap/click keys, slide your finger across keys, or use the computer keyboard
-   (`A W S E D F T G Y H U J K O L P`, `Z`/`X` = octave down/up).
+## Online: Vercel and Ably
 
-The buzzer can only play one note at a time: the last key pressed wins, and when you
-let it go, the previous key you're still holding plays again.
+Vercel serves `web/public` and the function `api/index.py` (FastAPI): the same REST API on Atlas,
+`/api/ably/token` (signed Ably token requests: teachers may publish on their own lesson channel
+`class:<name>`, everyone may follow lessons and enter their presence) and `/api/live`. It deploys
+from GitHub on every push to `main`.
 
-The speaker button in the header ("device sound") also plays the notes on the phone/PC.
+**Pending (needs the Vercel and Ably dashboards):** create an Ably app and API key; in Vercel's
+project settings set **Root Directory = repository root** (the root `vercel.json` then applies, and
+`web/vercel.json` must be deleted) and the environment variables `PIANO_DATA_KEY` (the same as the
+PCs), `MONGODB_URI`, `ABLY_API_KEY`. Until then Vercel keeps serving `web/` statically (the page
+works as a standalone piano; accounts and online lessons need the API). Put `ABLY_API_KEY` in the
+PCs' `.env` too, for the classroom relay.
 
-### Studio (compose melodies)
-
-Open the **Studio** tab (or `…/#studio`). It's a piano roll: **X axis = time** (bars and beats;
-the clock shows the time in seconds), **Y axis = pitch**. Each row is labelled with its note
-and frequency in Hz, from C1 (33 Hz) to B8 (7902 Hz).
-
-- **Draw tool** (pencil): click an empty spot to add a note (it gets the length of the last note
-  you touched), drag a note to move it, and drag its right edge to resize it. Right-click deletes.
-  Shift/Ctrl-click adds notes to the selection, Shift/Ctrl-drag selects with a box, and Ctrl+A
-  selects all. Delete removes the selection, and the arrow keys move it (Shift+↑/↓ = an octave).
-  On a phone: tap to add, drag a note to move it, drag empty space to scroll.
-- **Erase tool**: click/tap or drag over notes to delete them.
-- **Snap** sets the grid (1/16 by default; "Off" for free timing). Use the **BPM** box for the
-  tempo, the magnifier buttons or Ctrl+wheel to zoom, and Ctrl+Z / Ctrl+Y to undo/redo.
-- **Overlapping notes**: the buzzer plays their **resultant frequency**. Adding two equal sine
-  waves gives sin a + sin b = 2·cos((a−b)/2)·sin((a+b)/2), a wave at the **mean** frequency whose
-  volume beats at |f1−f2|. A buzzer can only hold one frequency, so it plays the mean of all
-  sounding notes (C4 262 Hz + E4 330 Hz → 296 Hz). The readout on the right shows it
-  (`C4+E4 → 296 Hz`). The same note struck again right after itself gets a 50 ms gap, so you hear
-  two notes instead of one long one.
-- **Play** (Space) starts at the orange marker; click/drag the bar ruler to move it. Use ⏮ to go
-  back to the start and 🔁 to loop. The metronome ticks on the device speaker only, never the buzzer.
-- **Record** (red ●): playback starts from the marker, and every note you play on the piano below
-  the roll (or the computer keys, or the key column on the left) is added to the melody, snapped
-  to the grid. Existing notes keep playing, so you can layer. One Undo removes the whole take.
-- **Accounts** (stored **on the ESP32**): press **Log in** to create an account (username +
-  password). If the board isn't connected yet, the Bluetooth chooser opens first. Then use
-  **Save** (Ctrl+S) and **My melodies** to open ▶ play, Open (edit), duplicate or delete your
-  saved melodies. The list shows the board's free flash. Without the board (or an account) you
-  can still compose; the work in progress is kept in the browser (localStorage) until you save
-  it. The login is remembered in the browser and checked again each time the ESP32 connects.
-  Limits: 50 accounts per board, 100 melodies per account, about 1200 notes per melody.
-- Keep in mind: the melodies live **on that board**. They're only reachable while it's
-  connected, by one phone/PC at a time, and stay on the board when it's returned (see "Back up"
-  above).
-
-### Test without the ESP32
+## Development
 
 ```sh
-uv run tools/fake_esp32.py      # Ctrl-C to stop, --silent for no sound
+uv run pytest -q                     # Python: core, PC, board code (on CPython), integration
+node --test tests/web/               # browser code
+uv run ruff format . && uv run ruff check .
+PIANO_TEST_MONGODB_URI=… uv run pytest tests/core/test_mongo.py   # against a real MongoDB (throwaway db)
 ```
-The laptop advertises as **ESP32-Piano** with the same Bluetooth service. It prints each note it
-receives, with the time since the previous one, and plays it on the laptop speaker. Open the
-website on **another device** (the phone) and connect, because a browser can't connect to its
-own computer's Bluetooth. It only fakes the notes, not the storage: Log in / Save say "This ESP32
-can't store melodies".
 
-### Run the website locally
+- `tests/board/` is MicroPython-compatible: pytest runs it here, `tests/board/testrunner.py` runs it
+  on the board (and the board runs it before installing an update).
+- `tests/test_integration.py` runs the board's firmware (its own MQTT client) and the PC's link
+  (aiomqtt) through a real broker (amqtt): storage, buzzer, last will, keeping a new version.
+- `tests/fog/test_app.py` drives the PC app end to end (REST, WebSocket) with the board's real
+  storage code; `tests/fog/test_updater.py` runs self-updates against throwaway git repos.
+- FastAPI modules with dependencies defined inside functions must not use
+  `from __future__ import annotations` (FastAPI then can't resolve them: 422 errors).
 
-```sh
-python3 -m http.server 3000 -d web/public     # http://localhost:3000
-```
-Web Bluetooth (and the WebCrypto used for passwords) also work on `http://localhost`, a secure
-context, so the laptop's Chrome can connect to the ESP32 too (with `bluetooth.service` running).
+## Security
 
-### Deploy
+- In transit: HTTPS/WSS (Let's Encrypt) for phones, MQTT over TLS for the board (certificate
+  checked; Mosquitto users and per-board topic ACLs), TLS to Atlas, Ably, GitHub and DuckDNS.
+- At rest: every record on a board or in Atlas is AES-256-GCM sealed (`pianocore/crypto.py`), bound
+  to its key; usernames are stored as keyed hashes. Only ids, the owner's hashed id, the public
+  flag and update times are in the clear (queries need them). Passwords: PBKDF2 in the browser,
+  salted SHA-256 on the server. Sessions: HMAC-signed tokens (30 days).
+- Secrets live only in `.env` (PC) and Vercel's settings. Board updates are verified (TLS + git
+  hashes + tests). Anyone may sign up as a teacher (as decided); a teacher-code could be added.
 
-The Vercel project **`piano-web`** is connected to the GitHub repo
-`Pablo-Caballero-Maria/piano`. **Every push to `main` deploys to production**
-(https://piano-web-virid.vercel.app/), and pushes to other branches get preview URLs. Project settings:
-- **Root Directory: `web`**. Framework preset "Other"; `web/vercel.json` serves `public/` (a
-  static site: no functions, no environment variables needed).
+## Protocols (details in each module's docstring)
 
-The Vercel team is the user's Hobby team, `pablo-caballero-marias-projects`. Vercel sometimes
-asks for an email-code re-authentication, which only the user can do.
+- REST API: `pianocore/api.py` (+ `fog/app.py`, `api/index.py`).
+- Live class WebSocket messages: `fog/classroom.py`; browser side `web/public/js/link.js`.
+- MQTT topics PC ⇄ board: `fog/board.py`, `esp32/app.py`; storage requests (binary): `esp32/kv.py`.
+- Stored records and keys: `pianocore/kv_repo.py`, `pianocore/mongo_repo.py`; sync: `pianocore/sync.py`.
+- Ably channels and messages: `pianocore/ably.py`. Board updates: `fog/updater.py`, `esp32/ota.py`.
 
-### Storage on the ESP32 (accounts and melodies)
+## Troubleshooting
 
-`esp32/store.py` keeps everything in **`:piano.db`** on the board's flash, a MicroPython `btree`
-database (key/value B-tree; MicroPython has no SQLite, and adding it would mean compiling and
-flashing custom firmware on the teacher's board). Keys:
-
-| Key | Value |
-|---|---|
-| `u:<user>` | account `{name, salt, hash, t}` (`<user>` = lowercase username) |
-| `s:<sha256(token)>` | `<user>`: a login session (the browser keeps the token in localStorage) |
-| `i:<user>:<id>` | melody info `{name, bpm, n (notes), len (beats), c, u (created/updated, ms)}` |
-| `n:<user>:<id>` | the notes as text, `"p:s:d p:s:d …"` (MIDI note, start, duration in beats) |
-| `#melody` | last melody number (ids are 8 digits) |
-
-**Passwords never travel**: the browser sends `PBKDF2-SHA256(password, "esp32-piano|" + username,
-100 000 rounds)`, and the board stores `sha256(random salt + that key)`. The Bluetooth link isn't
-encrypted, so someone sniffing nearby could capture and replay that key or a session token. That's
-acceptable for a class project, but don't reuse a real password.
-
-### Storage protocol
-
-A second characteristic in the same service, `7a3e0003-5c2b-4f8e-9d61-3b2f1c9a8e10` (write, write
-without response, notify). Each message, both ways, is a **4-byte little-endian length + JSON**.
-The browser writes requests in chunks of `MTU − 3` bytes and the board answers with notifications
-of the same size. The MTU starts at 23 (20-byte chunks); the board reports the negotiated one in
-`hello`, and accepts up to 256. One request at a time, max 24 000 bytes.
-
-Requests are `{id, op, t (browser clock, ms), tok?, …}`. Answers are `{id, ok: true, …}` or
-`{id, ok: false, code, error}`. The ops: `hello` (→ `mtu`, `free` KB), `register` / `login`
-(`user`, `key`) → `{user, tok}`, `logout`, `me` → `{user | null}`, `list` → rows
-`[id, name, bpm, noteCount, length, updatedAt]`, `get` / `delete` (`mid`), and `create` /
-`update` (`mid`, `melody: {name, bpm, notes, length}`).
-
-In the firmware, the BLE handler only collects the bytes; requests are answered from the main
-loop. Notes keep their own characteristic and are played straight from the BLE handler, so they
-stay low-latency. In the browser, notes and storage chunks share one write queue, so a note
-waits behind at most one chunk.
-
-### Troubleshooting
-
-- **ESP32-Piano doesn't appear in the list**: check that the ready chirp played, then
-  stay close. Only one device can be connected at a time, so disconnect any other phone.
-  This includes `fake_esp32.py`: don't run it at the same time as the real board, or the
-  chooser shows two "ESP32-Piano"s.
-- **"This ESP32 can't store melodies"**: the board runs an old `main.py`, or `store.py` is missing.
-  Install both (see "Put the firmware on the ESP32"). `fake_esp32.py` also shows this.
-- **`store error: OSError(0,)` in the log**: the btree database ran out of C heap. That happens if
-  `piano.db` was opened again and again without `store.close_db()` (e.g. test scripts run with
-  `mpremote run`, since a soft reset doesn't free C memory). Hard-reset the board.
-- **"This browser can't use Bluetooth" on Linux Chrome**: open `chrome://flags/#enable-web-bluetooth`
-  (or `#enable-experimental-web-platform-features`), set it to **Enabled** and relaunch Chrome.
-  BlueZ must be running (`systemctl status bluetooth`). This is already done on this laptop.
-- **"Couldn't connect: Connection attempt failed." on Android**: common on the first try
-  (Android's GATT error 133). Just press Connect again; the retry worked on 2026-11-03.
-- **Connected but silent**: check the wiring and the volume (`VOLUME` in `esp32/main.py`).
-  Quick buzzer check (stop the firmware first): a magnetic buzzer's coil (~20-40 Ω) pulls D33
-  to GND, so with the internal pull-up D33 reads 0 when the buzzer is connected, 1 when the
-  circuit is open:
-  `uv run mpremote connect /dev/ttyUSB0 exec "from machine import Pin; print(Pin(33, Pin.IN, Pin.PULL_UP).value())"`
-  If it flips between 0 and 1 when you touch things, there's a loose contact (see History, 2026-11-03).
-- **`mpremote` can't open /dev/ttyUSB0**: check that `id` lists `uucp`, and that no other
-  `mpremote` or serial monitor is holding the port.
-- **No /dev/ttyUSB0 at all, but `journalctl -k` shows the CP2102 (`10c4:ea60`)**: the kernel
-  was upgraded without a reboot, so the running kernel's modules (`cp210x`) are gone. Reboot, or
-  load it from the cached package of the running kernel (`uname -r`) without rebooting:
-  `tar --zstd -xf /var/cache/pacman/pkg/linux-zen-<running version>-x86_64.pkg.tar.zst --wildcards '*/cp210x.ko.zst'`,
-  `zstd -d` it, then `sudo insmod cp210x.ko` (needs the user's password, so a separate terminal).
-  Installing Arch's `kernel-modules-hook` package prevents this.
-
-### Protocol
-
-BLE service `7a3e0001-5c2b-4f8e-9d61-3b2f1c9a8e10`, characteristic
-`7a3e0002-5c2b-4f8e-9d61-3b2f1c9a8e10` (write / write without response).
-Each write is 2 bytes: the frequency in Hz as a little-endian uint16, where 0 means silence.
-The page sends a write only when the sounding note changes. While one write is in flight,
-it keeps just the newest note, so a backlog can't build up and add delay. The page also sends
-the current state (normally 0) right after connecting.
-The UUIDs and the name `ESP32-Piano` are hard-coded in `esp32/main.py`, `web/public/js/ble.js` and
-`tools/fake_esp32.py`; change all three together. The Studio uses the same protocol: it sends the
-resultant frequency whenever it changes. Accounts and melodies use a second characteristic (see
-"Storage protocol").
+- **The page doesn't load on a phone**: is it on the classroom router? Does
+  `piano-esp32.duckdns.org` resolve to the PC there (`uv run python -m fog check` prints the LAN
+  IP)? Is nginx running (`systemctl status nginx`)?
+- **"board offline"**: is the board's chirp G6-C7 heard? `uv run tools/board.py log` shows what it
+  does (WiFi, clock, MQTT errors). Check `journalctl -u mosquitto`.
+- **No /dev/ttyUSB0 but `journalctl -k` shows the CP2102 (`10c4:ea60`)**: the kernel was upgraded
+  without a reboot (its `cp210x` module is gone): reboot (or `insmod` it from the cached package).
+- **`mpremote` can't open /dev/ttyUSB0**: the user must be in `uucp`; nothing else may hold the port.
+- **"could not enter raw repl" right after a reset**: the board was still booting; run it again.
 
 ---
 
 ## Project context (for the next Claude Code session: read this first)
 
-### Goal
-A class project: a web piano (on **Vercel**, must work on **PC and phone**)
-that sends the notes in real time over the device's **Bluetooth** to an ESP32 nearby, which
-plays them on a buzzer. The site's UI is in English. Since 2026-11-04 it also has an FL-Studio-like
-**Studio** mode with user accounts, and Vercel deploys straight from GitHub. At the user's request,
-accounts and melodies are stored **on the ESP32** (btree on its flash, over Bluetooth), not in a
-cloud database. The user's Claude memory says to start
-each session by reading this README and to keep it updated with anything new.
+### Goal and decisions
+A class project, redesigned on 2026-11-17 at the user's request into **piano lessons with a fog
+node** (see the top of this file). The user's answers to the design questions: PC ⇄ board over
+**MQTT**; phones, PC and board on **a router in the classroom** (eduroam isolates clients);
+**DuckDNS `piano-esp32.duckdns.org` + Let's Encrypt** (DNS challenge; the record points at the PC's
+LAN IP); **nginx + Mosquitto** set up by a sudo script; the class = **whoever is connected to the
+PC**; sign-up chooses **student/teacher**; buzzer: **the live teacher, who can hand it to a student;
+otherwise a first-come queue administered by the teacher**; melodies **private or public**
+(public: everyone sees and edits); each board keeps **its class + public melodies**, Atlas
+everything, **newest edit wins** (editor recorded), usernames unique system-wide (an account made
+offline whose name was taken meanwhile is renamed, its old name still logs in); **Vercel + Ably**
+for online lessons and relaying classroom lessons; **one system key** on PCs and Vercel. The
+user said the Claude in Chrome extension may be used to set up Ably and Vercel's variables.
 
-### Current status (2026-11-04)
+### Status (2026-11-17)
 | Part | Status |
 |---|---|
-| `buzzer.py` on the real ESP32 | ✅ The user confirmed it "works perfectly" on 2026-10-28 (so the buzzer is **passive**) |
-| Website on Vercel | ✅ Live, static only. Vercel deploys from GitHub (`main` → production, Root Directory `web`) |
-| Studio (piano roll, playback, recording) | ✅ Works on the real ESP32 from the Redmi 12: 297 frequency changes logged, including the overlap means (422 Hz = F4+B4, 412 = E4+B4, 385 = E4+A4) |
-| Accounts + melodies on the ESP32 | 🟡 `store.py` and the framing tested on the board (fake BLE object) and the web side tested in Chrome against a simulated ESP32 at MTU 23. Installed on the board. Still to test: the phone ↔ real board end to end (History 10) |
-| Piano UI (keys, glissando, keyboard, octaves) | ✅ Tested on the live site with Claude in Chrome |
-| BLE from the website to a receiver | ✅ Tested end to end: Android phone → laptop running `fake_esp32.py` |
-| `esp32/main.py` on the real ESP32 | ✅ Starts with no changes on MicroPython 1.29; the Redmi 12 connects (LED on GPIO 2 lights), and every note arrives with the right frequency and drives PWM on D33 (verified with a logging copy) |
-| Sound from the buzzer | ✅ **Works end to end** (phone → BLE → ESP32 → buzzer), **as long as the ESP32 is pressed firmly into the breadboard**. It sits loosely there, and D33/GND lose contact with any vibration. Wire the buzzer straight to the board's pins to make it reliable |
-
-### Runbook: when the user says "the ESP32 is connected now"
-1. Check the board is there: `ls /dev/ttyUSB*` and
-   `uv run mpremote connect /dev/ttyUSB0 exec "import sys; print(sys.implementation, sys.version)"`.
-   Write the MicroPython version into this README.
-2. Make sure `fake_esp32.py` isn't running (`ps -eo pid,args | grep [f]ake_esp32`).
-3. Start the firmware **in the background** so its output can be read (`:store.py` must be on the
-   board, see "Put the firmware on the ESP32"):
-   `uv run mpremote connect /dev/ttyUSB0 run esp32/main.py` (it runs forever; stop the task when done).
-   Expect `Advertising as ESP32-Piano - ...` and ask the user whether the ready chirp played.
-   - If it crashes, the most likely spots are `ble.config(gap_name=...)` (already in a
-     try/except), `bytes(SERVICE_UUID)` in `RESP_DATA`, the `gatts_register_services` unpacking,
-     and `PWM(...)`/`duty_u16` on old firmware. Fix them, then rerun.
-4. Ask the user to open the live site on the phone (Chrome on Android, a Redmi 12), press Connect,
-   pick ESP32-Piano and play. The log should show `Connected`, and the user should hear the notes on
-   the buzzer, the connect chirp, and the disconnect chirp after pressing Disconnect.
-5. Optionally also test from the laptop's Chrome (Web Bluetooth flag already enabled).
-6. If the user wants it to run without the laptop:
-   `uv run mpremote connect /dev/ttyUSB0 cp esp32/store.py :store.py + cp esp32/main.py :main.py + reset`.
-   Careful: `mpremote run`/`exec` doesn't reset the board, so don't open `piano.db` from test
-   scripts without closing it (see Troubleshooting, `OSError(0,)`). Hard-reset after experiments.
-7. Record the results here (Current status table + History).
+| Shared core, PC app, board firmware, Vercel function, website | ✅ Written and tested: 74 Python + 12 JS tests; MongoRepo checked against the real Atlas cluster |
+| Website in a real browser | ✅ Headless Chrome against `python -m fog demo`: sign-up as teacher/student, piano lesson (notes reach the buzzer and the student's keyboard), studio lesson (student follows read-only, in step), buzzer queue, public melody edited by another user, phone layout |
+| Board ⇄ PC over MQTT | ✅ Firmware's MQTT client + aiomqtt through amqtt (tests) and through Mosquitto with the deploy ACL (manual check) |
+| `deploy/setup.sh` | 🟡 Written, syntax-checked; not run yet (needs sudo: the user runs it) |
+| Real board with the new firmware | ⬜ The board is back with the teacher. It still has the OLD files and **`main.py` renamed to `main_off.py`** (from a memory test): `uv run tools/board.py setup` fixes it |
+| Vercel (root dir, env vars) and Ably (app, key) | ⬜ Needs the dashboards (Chrome extension wasn't connected) |
 
 ### Hardware
-- **ESP32** dev board running **MicroPython v1.29.0** (2026-08-24, `ESP32_GENERIC`, "Generic ESP32
-  module with ESP32"). Its filesystem has the teacher's `blink.py` and `boot.py` (the default
-  139-byte one); leave them alone. Since 2026-11-03 it also has **our `main.py`**, so the piano
-  firmware starts on every power-up/reset. `mpremote` still works while it runs (it interrupts it
-  with Ctrl-C). Since 2026-11-04 it also has **`store.py`** and **`piano.db`** (everyone's accounts
-  and melodies). Before giving the board back, ask the user whether to back up `piano.db` and
-  remove our files (see "Put the firmware on the ESP32"). It's **borrowed from the teacher**: the user only has it in
-  class, so between classes nothing can be tested on hardware.
-- It connects over USB at **`/dev/ttyUSB0`** through a CP2102 USB-UART chip (`10c4:ea60`).
-- **Buzzer**: a 3-pin passive magnetic module: a coil of roughly 20-40 Ω between S and −. Wiring:
-  **S → D33 = GPIO 33**, **− → GND**, and since 2026-11-03 the middle pin (VCC/+) → **3V3**. The
-  first module also played with only S and −. On 2026-11-03 it was swapped for a second one,
-  but it probably wasn't broken (see History).
-- **The ESP32 sits loosely in the breadboard.** D33 and GND only make contact when the board is
-  pressed in. This was the root cause of "no sound" on 2026-11-03. Press it in fully, or plug the
-  dupont wires straight onto the board's header pins.
-- The on-board LED is **blue, on GPIO 2** (confirmed 2026-11-03), as the firmware assumes.
-- **The user's phone**: a Xiaomi Redmi 12 running Android, using Chrome. Web Bluetooth works on it.
+- ESP32 dev board, **MicroPython v1.29.0** (`ESP32_GENERIC`), borrowed from the teacher; its own
+  `boot.py` and `blink.py` must stay. USB serial `/dev/ttyUSB0` (CP2102). 4 MB flash (~2 MB free).
+  The firmware has **no MQTT library** (hence `esp32/mqtt.py`), `deflate` can't compress, and
+  `requests` doesn't verify TLS (hence `esp32/ota.py`'s own GET).
+- Buzzer: passive 3-pin magnetic module (~20-40 Ω coil): S → D33, − → GND, middle → 3V3; works at
+  50 % duty (`VOLUME = 0.5`; 100 % only clicks). On-board LED on GPIO 2.
+- The board sits loosely in the breadboard: D33/GND lose contact with any vibration.
+- The user's phone: Xiaomi Redmi 12, Android, Chrome.
 
-### Laptop (Arch Linux, fish shell, zen kernel 7.2.x, Google Chrome 156)
-- **mpremote** is a dependency of the uv project in this directory (`pyproject.toml`, `.venv`). Run it as `uv run mpremote ...`; it is no longer installed globally.
-- **Serial permission**: `/dev/ttyUSB0` is `root:uucp`, mode 660, and the user is in the `uucp` group.
-- **Bluetooth**: a MediaTek MT7920 Wi-Fi + Bluetooth combo (`hci0`, `btusb`/`btmtk`). BlueZ 5.87
-  is installed (`bluez`, `bluez-utils`). The controller supports the peripheral role and LE
-  advertising. **On 2026-11-03 `bluetooth.service` was disabled and inactive** (it was enabled on
-  10-28), so `bluetoothctl` just hangs. `fake_esp32.py` and laptop Chrome need
-  `sudo systemctl enable --now bluetooth` first. The phone → ESP32 path doesn't need it.
-- **Chrome**: Web Bluetooth is enabled in `chrome://flags`, because it's off by default on Linux.
-  `navigator.bluetooth.getAvailability()` returns true on the live site.
-- **Python**: `python-dbus` is installed, but `python-gobject` (`gi.repository`) is NOT. That's
-  why `fake_esp32.py` uses `dbus-fast` through `uv run`, which pulls it in automatically
-  (PEP 723 header). `pacat` is used for sound.
-- Claude in Chrome (the browser extension) is available. It was used to deploy to Vercel and to
-  test the site; it can't operate Chrome's native Bluetooth device chooser.
+### Laptop (the teacher's PC for now: Arch Linux, fish, zen kernel, Chrome 156)
+- `uv` project (`pyproject.toml`); `mpremote` is a dev dependency (`uv run mpremote …`).
+- Serial: `/dev/ttyUSB0` is `root:uucp` 660 and the user is in `uucp`.
+- nginx, certbot, mosquitto installed (services not enabled until `setup.sh`). Home is mode 700.
+- Only WiFi (eduroam) — joining another network from the laptop drops the session; there's an
+  Ethernet port. The MT7920 card also does Bluetooth (no longer used).
+- Chrome can run headless with `--remote-debugging-port` for UI tests when the Claude in Chrome
+  extension isn't connected.
 
-### History / decisions
-1. **2026-10-28**: `buzzer.py` was written and run with `uv run mpremote connect /dev/ttyUSB0 run buzzer.py`.
-   The user confirmed it "works perfectly". It uses PWM with `duty_u16`, falling back to `duty`
-   on older firmware, at `VOLUME = 0.5`.
-2. The user returned the ESP32 and asked for the Bluetooth piano for the next class.
-   That's how `esp32/main.py` and `web/index.html` came about. The design:
-   - The ESP32 uses MicroPython's low-level `bluetooth` module rather than `aioble`, so nothing
-     extra has to be installed on the board. It's a BLE peripheral with a custom service.
-   - The name goes in the advertising packet and the 128-bit service UUID goes in the scan
-     response, because both don't fit in 31 bytes.
-   - The browser picks the device by name or service. Writes are handled inside the BLE IRQ for
-     the lowest latency.
-   - Chirps run from the main loop. On disconnect the buzzer is silenced and advertising restarts.
-   - The buzzer is monophonic, so the web app plays only the last held note, falling back to the
-     previous held one. It writes only when the sounding note changes, with one write in flight
-     at a time (newest value wins).
-   - Sliding a finger across keys plays a glissando (pointer events + `elementFromPoint`). The
-     computer keys are matched by physical position (`e.code`), with labels from
-     `navigator.keyboard.getLayoutMap()`, so the Spanish layout shows `Ñ` on the Semicolon key.
-   - The number of keys adapts to the screen width (7–22 white keys); octaves 1–6.
-   - An optional "Device sound" toggle plays a WebAudio square wave on the phone or PC
-     (off by default, remembered in localStorage).
-   - All notes are released on blur or when the tab is hidden.
-   - A banner explains when Bluetooth isn't available: not https, an unsupported browser, or
-     Linux Chrome with the flag still off.
-3. The laptop had no BlueZ. The user installed it and then enabled the Chrome flag.
-4. The site was deployed with Vercel drop as project `piano-web`, then redeployed into the same
-   project with the Linux banner text.
-5. Tested the piano on the live site with Claude in Chrome. A glissando drag sent
-   262, 294, 330, 392, 440, 494 then 0; the `H` key sent 440 then 0; octave + works; no stuck notes.
-6. Wrote `tools/fake_esp32.py` and ran an **end-to-end BLE test**: Chrome on the Redmi 12
-   connected to the laptop, and the user played notes and heard them on the PC speakers.
-   - **Log:** 96 writes, all in order. A glissando arrived as G4 A4 B4 C5 B4 A4 G4, then 0, and
-     every key release sent 0.
-   - **Latency:** the gaps between writes are quantized to multiples of about 49 ms (49/98/147/195),
-     which is Android's default BLE connection interval of ~48.75 ms. Each note can arrive up to
-     ~50 ms late, and two writes can share one connection event (0 ms gaps). Fine for melodies.
-     If it ever feels laggy, the fix is a shorter connection interval requested by the peripheral.
-     As far as I know, MicroPython's `bluetooth` module doesn't expose that.
-   - **Tool bug, fixed afterwards:** "Connected" didn't print, because a new phone appears via
-     InterfacesAdded already connected. The fixed version wasn't re-run with the phone.
-
-7. **2026-10-30**: Published to GitHub (`Pablo-Caballero-Maria/piano`, public). Added `.gitignore`
-   (`.venv`, `piano-web.zip`, `.claude/settings.local.json`), setup instructions, and doc
-   comments/docstrings for the functions that had none. Code behaviour unchanged.
-
-8. **2026-11-03 (in class, board connected)**:
-   - `/dev/ttyUSB0` was missing: the laptop's kernel had been upgraded (7.2.11 → 7.2.14) without a
-     reboot. Fixed by loading `cp210x.ko` from the cached 7.2.11 package with `sudo insmod`
-     (see Troubleshooting).
-   - The board runs MicroPython v1.29.0. `esp32/main.py` ran **unchanged with no errors**. The
-     first Android connect failed ("Connection attempt failed."), and a plain retry worked. The
-     blue LED (GPIO 2) lights on connect.
-   - **No sound, from any script.** Diagnosed from the board without a multimeter:
-     - Continuity: internal pull-up on D33, where 0 means the coil pulls it to GND, and D32 as a
-       blank reference.
-     - Load: ADC on D33 while driven high. 1.2 V means coil present and 3.1 V means nothing
-       connected. The ADC must be created **before** the PWM, because creating it after
-       disconnects the PWM output. And at audio frequencies the "max" reading catches the coil's
-       switching spikes, so it is useless there.
-     - PWM: 10 Hz PWM sampled by the ADC. It toggles fine, also with BLE active, so BLE does not
-       interfere with D33.
-     - Notes: a logging copy of the firmware showed 110+ notes arriving with the right
-       frequencies, each one starting/stopping the PWM.
-   - **Cause: bad contacts, not the code.** First the GND dupont wire was loose, and the user
-     replaced it. The contact still opened after a note or two. That made me wrongly blame the
-     buzzer module (pressing on it closed the circuit), so the user swapped it for another one,
-     and the new one did the same. The real culprit was **the ESP32 itself sitting loosely in
-     the breadboard**. With the LED contact finder (`contact_led.py` idea: GPIO 2 LED = D33
-     pull-up reads 0), pressing the board in closed the circuit, and then the piano played.
-     The buzzer's own vibration was enough to open the contact, which is why it always went
-     silent after the first few notes.
-   - Tried `Pin.DRIVE_3` (max pin current) on the buzzer pin, then **reverted** it. It wasn't the
-     problem, and with a ~20-40 Ω coil it pushes the pin past its rated current on the teacher's
-     board.
-   - **End-to-end success**: with the board pressed in, the ready chirp played and the piano on the
-     Redmi 12 played notes on the buzzer.
-   - Still pending: the page's initial "0" write right after connecting may cut the 140 ms connect
-     chirp short. Fix that in the firmware, e.g. ignore 0 writes while a chirp plays, or make
-     chirps not interruptible.
-   - **Installed as `:main.py`** (`mpremote cp esp32/main.py :main.py`), so it runs by itself on
-     power-up. Verified with a hard reset (EN pulsed via RTS) and the serial log: after the ROM boot
-     messages it printed `Advertising as ESP32-Piano - ...` with no errors. Board files now:
-     `blink.py`, `boot.py`, `main.py`.
-   - The user had set `VOLUME = 1` (100% duty, which keeps D33 at a steady high, so a passive
-     buzzer only clicks). It was installed like that first, then the user asked to go back to
-     **`VOLUME = 0.5`** (the committed value). That version was reinstalled as `:main.py`, the
-     sizes match the repo (4473 bytes), and after a reset it printed `Advertising as ESP32-Piano`.
-
-9. **2026-11-04**: the user asked for an FL-Studio-like "studio" mode, accounts on MongoDB
-   Atlas, live recording from the piano, and GitHub → Vercel auto-deploys. Done as follows:
-   - `web/index.html` was split into `web/public/` (ES modules, no build step), plus Vercel
-     functions in `web/api/` and shared code in `web/lib/`. The Piano mode behaves as before.
-   - "Overlapping notes play the resultant frequency" = the **arithmetic mean** of the sounding
-     notes' frequencies (the carrier of the summed waves, see Studio above). Notes are stored in
-     beats, so changing the BPM keeps the rhythm.
-   - The emoji icons were replaced by an inline SVG sprite: this laptop's Chrome has no emoji
-     font (they showed as boxes), and Android draws ▶ as a colored emoji.
-   - Tested locally (`npm run dev` + Claude in Chrome): the API with curl (register/login/logout,
-     CRUD, validation, users can't see each other's melodies), editing (add/move/resize/delete,
-     undo/redo), playback timing (C4 then C4+E4 then E4 at 120 BPM: 262 → 296 → 330 Hz switching
-     at exactly 500 ms steps, the 50 ms re-strike gap, stop at the end), recording held keys
-     (snapped, chords recorded, one undo per take), save with the login dialog, list/open/play/
-     duplicate/delete, and phone-sized layouts. The real ESP32 was not available, so the Studio
-     → buzzer path is untested on hardware (it uses the same `send()` as the piano).
-   - The Vercel project `piano-web` (created with Vercel drop) was connected to the GitHub repo,
-     with Root Directory `web` and the `MONGODB_URI` env var.
-   - `esp32/main.py` changed only in two comments (the path of the web code), so the copy
-     installed on the board is still functionally the same.
-
-10. **2026-11-04, later**: the phone test of the Studio worked on the real board (log above). Then
-    the user asked to move the backend from MongoDB Atlas to **"an SQLite file inside the ESP32's
-    memory"**. Checked on the board: 4 MB flash with ~2 MB free, ~160 KB Python heap. **MicroPython
-    has no `sqlite3`** (only via a custom firmware build with `usqlite`), but it has **`btree`**. I
-    explained the consequences (the data is only reachable over Bluetooth with that board, one
-    device at a time, and it stays on the teacher's board). The user chose **btree** and
-    **"everything on the ESP32"** (accounts too), so MongoDB and the Vercel functions were removed.
-    - New `esp32/store.py` + a storage characteristic in `main.py`, plus `ble.js`/`api.js` on the
-      web side. See "Storage on the ESP32" and "Storage protocol" above. The other web code
-      didn't change.
-    - **Gotcha found while testing**: btree keeps its page cache in the **C (IDF) heap**, which
-      Bluetooth also uses (~108 KB free with BLE on), and only `db.close()` frees it. Test
-      scripts that opened databases without closing them leaked it across `mpremote run`s, until
-      btree failed with `OSError(0,)`. Fixes: `pagesize=1024` (~23 KB instead of ~40 KB) and
-      `store.close_db()` in main.py's `finally`.
-    - Tests: every `store.py` op on the board (accounts, wrong password, isolation between users,
-      a 1000-note melody, data surviving a reopen). Writes take ~0.7 s (flash commit). The
-      framing ran on the board with a fake BLE object: 20-byte chunks at MTU 23, 253-byte
-      notifications at MTU 256 with forced "buffers full" retries, back-to-back requests, an
-      oversize request (413, then the link recovers) and bad JSON. The web side ran in Chrome
-      against a simulated ESP32 at MTU 23 (`navigator.bluetooth` mock): register → save → list →
-      duplicate → open → update → delete → logout → wrong password → login, the session check
-      on reconnect, and an 800-note save with a key press in the middle (the note got through
-      mid-upload; the notes came back identical).
-    - The Atlas `piano` database still holds the phone test's accounts (`test`, `camilo_test`)
-      and a 1-note melody. Nothing was migrated, and the database wasn't deleted (that's the
-      user's call). `web/.env.local` was deleted. The Vercel env var `MONGODB_URI` is no longer
-      used.
+### History
+1. **2026-10-28**: `buzzer.py` played tunes on the board (PWM, `VOLUME = 0.5`).
+2. **Bluetooth piano**: the page wrote frequencies to a BLE characteristic of the ESP32
+   (MicroPython `bluetooth`, one write in flight, newest note wins); glissando, computer keys by
+   physical position, device sound. Deployed on Vercel. Android BLE latency ~50 ms per note.
+3. **2026-11-03** (board in class): the firmware ran unchanged; "no sound" was bad contacts (a loose
+   GND wire, then the board loose in the breadboard), diagnosed with the D33 pull-up trick.
+4. **2026-11-04**: Studio (piano roll, playback, recording, resultant frequency), accounts and
+   melodies first on Atlas (Vercel functions), then — at the user's request — on the board itself
+   (btree over BLE). Tested from the phone.
+5. **2026-11-17**: the board hosted the website itself on its own WiFi (worked from the phone, with
+   Chrome's insecure-origin flag for Web Bluetooth). Adding WiFi configuration and self-update on
+   the board ran out of RAM (see "The board": heap doubling); `mpy-cross` was blocked; the user
+   discarded that work and redesigned the project into the current fog-node architecture
+   (decisions above). Built the shared core, the PC app, the new firmware (MQTT, encrypted store,
+   verified updates with on-board tests and rollback), the Vercel function, the class UI, deploy
+   scripts, and tests at every level; found and fixed while testing: a never-called
+   `mark_good()` (good updates would have been rolled back), a 32-bit overflow in the store's
+   free-space answer on a big disk, and a spurious "your turn" toast for the live teacher.
 
 ### Not verified yet
-- The actual latency on the real board, and whether the connect/disconnect chirps are audible.
-- The fixed connect/disconnect logging in `tools/fake_esp32.py`.
-- The site on an iPhone (Bluefy) or on Windows/macOS.
-- Accounts/melodies between the phone and the real board (the protocol, the firmware and the web
-  side were each tested on their own; see History 10). Also whether Chrome on Android negotiates
-  a bigger MTU (the `hello` answer says; at 23 a 100-note melody takes ~1 s to save).
-- The Studio editor with real touch input (tested at phone sizes with a mouse).
-
-### Ideas for later
-A volume control (a 3rd byte in the protocol), showing the ESP32's connection quality,
-an "arpeggio" option for overlapping notes (cycle through them fast, which sounds more like a
-chord than the mean), pinch-to-zoom on the roll, and exporting/importing melodies as files
-(so they survive returning the board).
+- `deploy/setup.sh` end to end (certificate via DuckDNS, nginx and Mosquitto with TLS, the service).
+- The new firmware on the real board (WiFi, clock, MQTT/TLS with Let's Encrypt, memory headroom,
+  an update over WiFi with its on-board tests).
+- Vercel with the API and Ably; online lessons and the classroom relay with a real Ably key.
+- Phones on the classroom router (DNS rebinding protection on the router?).

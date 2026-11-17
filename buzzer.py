@@ -1,18 +1,39 @@
 # Play sounds on a buzzer connected to an ESP32 (MicroPython).
 # Run from the laptop with:  mpremote connect /dev/ttyUSB0 run buzzer.py
 
-from machine import Pin, PWM
 import time
 
-BUZZER_PIN = 33   # GPIO (board label D33) the buzzer module's S pin is wired to
-VOLUME = 0.1      # PWM duty cycle 0.0-0.5 (0.5 is the loudest for a passive buzzer)
+from machine import PWM, Pin
+
+BUZZER_PIN = 33  # GPIO (board label D33) the buzzer module's S pin is wired to
+VOLUME = 0.1  # PWM duty cycle 0.0-0.5 (0.5 is the loudest for a passive buzzer)
 
 # Note frequencies in Hz (4th to 6th octave)
 NOTES = {
-    "C4": 262, "CS4": 277, "D4": 294, "DS4": 311, "E4": 330, "F4": 349,
-    "FS4": 370, "G4": 392, "GS4": 415, "A4": 440, "AS4": 466, "B4": 494,
-    "C5": 523, "CS5": 554, "D5": 587, "DS5": 622, "E5": 659, "F5": 698,
-    "FS5": 740, "G5": 784, "GS5": 831, "A5": 880, "AS5": 932, "B5": 988,
+    "C4": 262,
+    "CS4": 277,
+    "D4": 294,
+    "DS4": 311,
+    "E4": 330,
+    "F4": 349,
+    "FS4": 370,
+    "G4": 392,
+    "GS4": 415,
+    "A4": 440,
+    "AS4": 466,
+    "B4": 494,
+    "C5": 523,
+    "CS5": 554,
+    "D5": 587,
+    "DS5": 622,
+    "E5": 659,
+    "F5": 698,
+    "FS5": 740,
+    "G5": 784,
+    "GS5": 831,
+    "A5": 880,
+    "AS5": 932,
+    "B5": 988,
     "C6": 1047,
     "R": 0,  # rest
 }
@@ -81,13 +102,38 @@ def scale():
 
 
 TWINKLE = [
-    ("C5", 1), ("C5", 1), ("G5", 1), ("G5", 1), ("A5", 1), ("A5", 1), ("G5", 2),
-    ("F5", 1), ("F5", 1), ("E5", 1), ("E5", 1), ("D5", 1), ("D5", 1), ("C5", 2),
+    ("C5", 1),
+    ("C5", 1),
+    ("G5", 1),
+    ("G5", 1),
+    ("A5", 1),
+    ("A5", 1),
+    ("G5", 2),
+    ("F5", 1),
+    ("F5", 1),
+    ("E5", 1),
+    ("E5", 1),
+    ("D5", 1),
+    ("D5", 1),
+    ("C5", 2),
 ]
 
 ODE_TO_JOY = [
-    ("E5", 1), ("E5", 1), ("F5", 1), ("G5", 1), ("G5", 1), ("F5", 1), ("E5", 1), ("D5", 1),
-    ("C5", 1), ("C5", 1), ("D5", 1), ("E5", 1), ("E5", 1.5), ("D5", 0.5), ("D5", 2),
+    ("E5", 1),
+    ("E5", 1),
+    ("F5", 1),
+    ("G5", 1),
+    ("G5", 1),
+    ("F5", 1),
+    ("E5", 1),
+    ("D5", 1),
+    ("C5", 1),
+    ("C5", 1),
+    ("D5", 1),
+    ("E5", 1),
+    ("E5", 1.5),
+    ("D5", 0.5),
+    ("D5", 2),
 ]
 
 

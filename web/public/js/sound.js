@@ -1,21 +1,22 @@
-// The one sound output: every mode calls output(f), which sends f to the ESP32 and,
-// with "Device sound" on, plays the same square wave on this phone/PC. Also the
-// metronome click (device speaker only, so it never reaches the buzzer).
-import * as ble from "./ble.js";
+// The one sound output: every mode calls output(f, midi), which plays the square wave on this
+// phone/PC (device sound, on by default) and tells the class (link.js): the teacher's PC sends it
+// to the buzzer if this user holds it, and shows it to the teacher (and, for a live teacher, to
+// every student). Also the metronome click (device speaker only, never the buzzer).
+import * as link from "./link.js";
 
 let current = 0;
-let soundOn = false;
-try { soundOn = localStorage.getItem("piano-sound") === "1"; } catch {}
+let soundOn = true;
+try { soundOn = localStorage.getItem("piano-sound") !== "0"; } catch {}
 
 let ctx = null, osc = null, gain = null;
 const listeners = new Set();
 
-/** Play f Hz (0 = silence) on the buzzer and the device; does nothing if f is already playing. */
-export function output(f) {
+/** Play f Hz (0 = silence), the sounding MIDI notes being midi; does nothing if f is already playing. */
+export function output(f, midi = []) {
   f = Math.max(0, Math.min(65535, Math.round(f)));
   if (f === current) return;
   current = f;
-  ble.send(f);
+  link.note(f, f ? midi : []);
   localTone(f);
   for (const fn of listeners) fn(f);
 }

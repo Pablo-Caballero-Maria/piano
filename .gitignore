@@ -15,3 +15,6 @@ node_modules/
 # Secrets (MongoDB URI). Never commit these: the repo is public.
 .env
 .env.*
+HANDOFF.md
+.demo-board/
+.fake-board/

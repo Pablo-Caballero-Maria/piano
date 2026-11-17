@@ -35,6 +35,9 @@
       <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></symbol>
       <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
       <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+      <symbol id="i-class" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
     </defs>
   </svg>
   <header>
@@ -45,11 +48,14 @@
     </nav>
     <div class="status" id="status" data-state="idle"><span class="dot"></span><span id="statusText">Not connected</span></div>
     <button id="sound" class="icon" aria-pressed="false"><svg class="ic"><use href="#i-mute"/></svg></button>
-    <button class="primary" id="connect">Connect ESP32</button>
+    <button class="primary" id="classBtn" title="The class: lesson, buzzer queue, students"><svg class="ic"><use href="#i-class"/></svg> Class</button>
     <button id="account">Log in</button>
   </header>
 
   <div class="notice" id="notice" hidden></div>
+  <div class="classbar" id="classBar" hidden>
+    <span class="dot"></span><span id="classText"></span><span id="classNotes" class="teacher-notes"></span>
+  </div>
 
   <!-- ===== Piano mode: play live ===== -->
   <main id="pianoView" class="view piano-view">
@@ -73,8 +79,9 @@
         <input id="sName" maxlength="80" placeholder="Untitled melody" aria-label="Melody name" spellcheck="false">
         <span id="sSaveState" class="save-state"></span>
         <button id="sNew" title="New melody">New</button>
-        <button id="sOpen" title="My melodies saved on the ESP32"><svg class="ic"><use href="#i-folder"/></svg><span class="lbl"> My melodies</span></button>
-        <button id="sSave" class="primary" title="Save to my account on the ESP32 (Ctrl+S)"><svg class="ic"><use href="#i-save"/></svg><span class="lbl"> Save</span></button>
+        <button id="sOpen" title="My melodies and everyone's public ones"><svg class="ic"><use href="#i-folder"/></svg><span class="lbl"> My melodies</span></button>
+        <button id="sPublic" class="icon" title="Private: only you see it" aria-pressed="false"><svg class="ic"><use href="#i-lock"/></svg></button>
+        <button id="sSave" class="primary" title="Save to my account (Ctrl+S)"><svg class="ic"><use href="#i-save"/></svg><span class="lbl"> Save</span></button>
       </div>
       <div class="group transport">
         <button id="sStart" class="icon" title="Back to the start"><svg class="ic"><use href="#i-start"/></svg></button>
@@ -110,6 +117,10 @@
       <div class="now small" id="sNow" title="What the buzzer plays: overlapping notes give their resultant (mean) frequency">–</div>
     </div>
 
+    <div class="followbar" id="sFollowBar" hidden>
+      <span id="sFollowText">Following the teacher's piano roll</span>
+      <button id="sFollowStop" type="button">Back to my melody</button>
+    </div>
     <div class="roll" id="roll"></div>
 
     <div class="studio-keys" id="studioKeys">
@@ -130,10 +141,14 @@
     <form id="authForm">
       <h2>Your account</h2>
       <p id="authReason" class="muted" hidden></p>
-      <p class="muted">Accounts and melodies are stored on the ESP32, so it has to be connected (you'll be asked to pick it).</p>
+      <p class="muted" id="authWhere">Your account and melodies are kept on the classroom board and in the cloud.</p>
       <div class="seg">
         <button type="button" data-tab="login" aria-pressed="true">Log in</button>
         <button type="button" data-tab="register" aria-pressed="false">Create account</button>
+      </div>
+      <div class="seg role" id="authRole" hidden>
+        <button type="button" data-role="student" aria-pressed="true">I'm a student</button>
+        <button type="button" data-role="teacher" aria-pressed="false">I'm a teacher</button>
       </div>
       <label>Username<input id="authUser" name="username" autocomplete="username" required minlength="3" maxlength="32" autocapitalize="off" spellcheck="false"></label>
       <label>Password<input id="authPassword" name="password" type="password" autocomplete="current-password" required minlength="6"></label>
@@ -147,7 +162,7 @@
 
   <dialog id="userDlg" class="dlg">
     <h2><svg class="ic"><use href="#i-user"/></svg> <span id="userName"></span></h2>
-    <p class="muted">Your melodies are saved on the ESP32, in this account.</p>
+    <p class="muted" id="userRole"></p>
     <div class="row">
       <button type="button" id="userClose">Close</button>
       <button type="button" id="logout">Log out</button>
@@ -156,8 +171,12 @@
 
   <dialog id="listDlg" class="dlg wide">
     <div class="dlg-head">
-      <h2>My melodies</h2>
+      <h2>Melodies</h2>
       <button type="button" id="sListClose" class="icon" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="seg list-tabs">
+      <button type="button" data-scope="mine" aria-pressed="true">Mine</button>
+      <button type="button" data-scope="public" aria-pressed="false"><svg class="ic"><use href="#i-globe"/></svg> Public</button>
     </div>
     <ul id="listItems" class="melody-list"></ul>
     <p id="listEmpty" class="muted" hidden>No melodies yet. Compose one in the Studio and press Save.</p>
@@ -172,6 +191,47 @@
         <button value="ok" class="primary danger" id="confirmOk">OK</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="classDlg" class="dlg wide">
+    <div class="dlg-head">
+      <h2>Class</h2>
+      <button type="button" id="classClose" class="icon" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="dlg-body">
+      <section id="lessonSection">
+        <h3>Lesson</h3>
+        <p class="muted" id="lessonHelp"></p>
+        <div class="row start"><button type="button" class="primary" id="lessonToggle">Start the lesson</button></div>
+      </section>
+      <section id="lessonsSection">
+        <h3>Live lessons</h3>
+        <ul class="plain-list" id="lessonsList"></ul>
+        <p class="muted" id="lessonsEmpty">No lesson is live right now.</p>
+        <div class="row start"><button type="button" id="lessonsRefresh">Refresh</button></div>
+      </section>
+      <section id="buzzerSection">
+        <h3>Buzzer</h3>
+        <p class="muted" id="buzzerNow"></p>
+        <ul class="plain-list" id="buzzerQueue"></ul>
+        <p class="muted" id="buzzerEmpty">Nobody is waiting.</p>
+        <div class="row start">
+          <button type="button" class="primary" id="buzzerAsk">Ask for the buzzer</button>
+          <button type="button" id="buzzerNext">Next</button>
+          <button type="button" id="buzzerRevoke">Take the buzzer back</button>
+        </div>
+      </section>
+      <section id="peopleSection">
+        <h3>In class</h3>
+        <ul class="melody-list" id="peopleList"></ul>
+        <p class="muted" id="peopleEmpty">Nobody else is connected.</p>
+      </section>
+      <section id="pcSection">
+        <h3>Classroom PC</h3>
+        <pre class="pc-status" id="pcStatus">…</pre>
+        <div class="row start"><button type="button" id="pcUpdate">Check for updates</button></div>
+      </section>
+    </div>
   </dialog>
 
   <div id="toast" class="toast" role="status" hidden></div>

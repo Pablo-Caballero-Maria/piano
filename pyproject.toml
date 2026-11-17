@@ -1,9 +1,44 @@
 [project]
 name = "piano"
 version = "0.1.0"
-description = "Web piano that plays notes over Bluetooth LE on an ESP32 + buzzer (MicroPython)"
+description = "Piano lessons with an ESP32 buzzer: a teacher PC (fog node), MQTT, MongoDB Atlas, Vercel and Ably"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
-    "mpremote>=1.29.0",
+    "aiomqtt>=2.3",
+    "cryptography>=44",
+    "fastapi>=0.115",
+    "httpx>=0.28",
+    "pymongo>=4.10",
+    "uvicorn[standard]>=0.32",
 ]
+
+[dependency-groups]
+dev = [
+    "amqtt>=0.12.2",
+    "mpremote>=1.29.0",
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "esp32", "tests/board", "tools/sim"]
+addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = ["ignore::DeprecationWarning:fastapi.testclient", "ignore:Using `httpx` with `starlette.testclient`"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]  # unicode punctuation (…, →) in strings and comments is intended
+
+[tool.ruff.lint.per-file-ignores]
+# MicroPython code (the board and its tests): no f-string/typing modernisations it doesn't support
+"esp32/**" = ["UP", "SIM", "B", "RUF"]
+"tests/board/**" = ["UP", "SIM", "B", "RUF"]

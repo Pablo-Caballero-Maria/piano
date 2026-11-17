@@ -1,0 +1,4 @@
+# Who may use which MQTT topics (installed as /etc/mosquitto/piano.acl by deploy/setup.sh).
+# The PC's app may use every piano topic; each board only its own (setup.sh adds a block per board).
+user fog
+topic readwrite piano/#

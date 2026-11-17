@@ -24,6 +24,7 @@ export class Keyboard {
     this.pointerNotes = new Map(); // pointerId -> midi (0 = not over a key)
     this.keyNotes = new Map();     // KeyboardEvent.code -> midi
     this.sounding = new Set();
+    this.teacher = new Set();      // what the live teacher is playing (shown to students)
     all.add(this);
 
     octDown.onclick = () => this.shift(-1);
@@ -124,17 +125,24 @@ export class Keyboard {
     return k && this.el.contains(k) ? +k.dataset.midi : 0;
   }
 
-  /** Highlight held keys ("down") and the notes that are sounding. */
+  /** Highlight held keys ("down"), the notes that are sounding and the teacher's ("teacher"). */
   render() {
     const down = new Set([...this.pointerNotes.values(), ...this.keyNotes.values()]);
     for (const [m, k] of this.keyEls) {
       k.classList.toggle("down", down.has(m));
       k.classList.toggle("sounding", this.sounding.has(m));
+      k.classList.toggle("teacher", this.teacher.has(m));
     }
   }
 
   setSounding(midis) {
     this.sounding = new Set(midis);
+    this.render();
+  }
+
+  /** Show the notes the live teacher is playing (students' keyboards). */
+  setTeacher(midis) {
+    this.teacher = new Set(midis);
     this.render();
   }
 

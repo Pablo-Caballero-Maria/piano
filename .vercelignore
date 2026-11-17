@@ -1,0 +1,8 @@
+# Vercel only needs the website (web/public), the API function (api/) and the shared core (pianocore/)
+esp32/
+fog/
+deploy/
+tools/
+tests/
+buzzer.py
+*.zip
