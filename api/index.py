@@ -14,11 +14,13 @@ key as the teacher PCs), MONGODB_URI, ABLY_API_KEY, optionally MONGODB_DB.
 """
 
 import asyncio
+import logging
 import os
 from typing import Annotated, Any
 
 import httpx
-from fastapi import Depends, FastAPI, Header
+from fastapi import Depends, FastAPI, Header, Request
+from fastapi.responses import JSONResponse
 
 from pianocore import ably
 from pianocore.api import install_error_handlers, make_router
@@ -29,6 +31,16 @@ from pianocore.service import Service, ServiceError
 
 app = FastAPI(title="Piano (online)", docs_url=None, redoc_url=None, openapi_url=None)
 install_error_handlers(app)
+log = logging.getLogger("api")
+
+
+@app.exception_handler(Exception)
+async def _unexpected(request: Request, e: Exception) -> JSONResponse:
+    """A bug or an unreachable Atlas: JSON for the page, the traceback for Vercel's logs."""
+    log.exception("Unexpected error on %s", request.url.path)
+    return JSONResponse({"error": f"Server error ({type(e).__name__})"}, status_code=500)
+
+
 _cache: dict[str, Any] = {}
 
 
@@ -39,12 +51,21 @@ def _env(name: str) -> str:
     return value
 
 
-def service() -> Service:
-    """One Service (and Atlas client) per event loop: serverless instances may switch loops."""
+async def service() -> Service:
+    """One Service (and Atlas client) per event loop: serverless instances may switch loops.
+    (async: FastAPI runs sync dependencies in a worker thread, which has no event loop)"""
     loop = asyncio.get_running_loop()
     if _cache.get("loop") is not loop:
-        keys = Keys.from_text(_env("PIANO_DATA_KEY"))
-        repo = MongoRepo.connect(_env("MONGODB_URI"), keys, os.environ.get("MONGODB_DB", "piano"))
+        try:
+            keys = Keys.from_text(_env("PIANO_DATA_KEY"))
+        except ValueError as e:  # never echo the value itself
+            raise ServiceError(503, f"The server's PIANO_DATA_KEY is invalid: {e}") from e
+        try:
+            repo = MongoRepo.connect(_env("MONGODB_URI"), keys, os.environ.get("MONGODB_DB", "piano"))
+        except ServiceError:
+            raise
+        except Exception as e:
+            raise ServiceError(503, f"The server's MONGODB_URI doesn't work: {type(e).__name__}") from e
         _cache.update(loop=loop, service=Service(repo, keys))
     return _cache["service"]
 

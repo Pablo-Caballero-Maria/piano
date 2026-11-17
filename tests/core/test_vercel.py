@@ -46,3 +46,23 @@ def test_a_missing_setting_is_reported(client, monkeypatch):
     ]
     r = client.post("/api/ably/token", headers={"Authorization": "Bearer " + token})
     assert r.status_code == 503 and "ABLY_API_KEY" in r.json()["error"]
+
+
+def test_bad_settings_are_reported_without_their_values(monkeypatch):
+    spec = importlib.util.spec_from_file_location("vercel_api2", "api/index.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    client = TestClient(mod.app, raise_server_exceptions=False)
+    monkeypatch.setenv("PIANO_DATA_KEY", '"not-base64 secret"')
+    monkeypatch.setenv("MONGODB_URI", "mongodb+srv://user:hunter2@nowhere.invalid/")
+    r = client.get("/api/auth/me")
+    assert r.status_code == 503 and "PIANO_DATA_KEY is invalid" in r.json()["error"]
+    assert "secret" not in r.text
+    monkeypatch.setenv("PIANO_DATA_KEY", new_system_key())
+    monkeypatch.setenv("MONGODB_URI", "mongodb://user:hunter2@host:notaport/")
+    r = client.get("/api/auth/me")
+    assert r.status_code == 503 and "MONGODB_URI" in r.json()["error"] and "hunter2" not in r.text
+    # A valid configuration (the real dependency, no override): Atlas isn't contacted before it's needed
+    monkeypatch.setenv("MONGODB_URI", "mongodb://127.0.0.1:9/")
+    r = client.get("/api/auth/me")
+    assert r.status_code == 401 and r.json() == {"error": "Log in first"}
