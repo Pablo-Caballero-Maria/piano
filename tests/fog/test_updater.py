@@ -118,3 +118,21 @@ def test_board_paths_match_the_board():
         "README.md",
     ):
         assert board_path(path) == board_updater.board_path(path)
+
+
+async def test_fetching_from_a_url_instead_of_origin(repos):
+    """The service fetches the public repository by URL (no SSH key); same result."""
+    dev, pc = repos
+    origin = sh("git", "remote", "get-url", "origin", cwd=pc)
+    sh("git", "remote", "set-url", "origin", "git@example.invalid:nowhere.git", cwd=pc)  # unusable remote
+    u = Updater(
+        Git(pc, url=origin),
+        FakeBoard(None),
+        online=lambda: True,
+        public_url="https://pc",
+        test_commands=[["true"]],
+        restart=lambda: None,
+    )
+    new = push(dev, "README.md", "via url\n")
+    assert await u.check() == "updated"
+    assert sh("git", "rev-parse", "HEAD", cwd=pc) == new

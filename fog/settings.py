@@ -50,6 +50,7 @@ class Settings:
     update_every_s: int = 3600
     sync_every_s: int = 300
     auto_update: bool = True
+    git_url: str = "https://github.com/Pablo-Caballero-Maria/piano.git"  # public: no SSH key needed
 
     @classmethod
     def load(cls, env_file: Path | None = None) -> Settings:
@@ -81,4 +82,5 @@ class Settings:
             update_every_s=int(get("PIANO_UPDATE_EVERY_S", "3600")),
             sync_every_s=int(get("PIANO_SYNC_EVERY_S", "300")),
             auto_update=get("PIANO_AUTO_UPDATE", "1") not in ("0", "false", "no"),
+            git_url=get("PIANO_GIT_URL", "https://github.com/Pablo-Caballero-Maria/piano.git"),
         )

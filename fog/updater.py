@@ -47,9 +47,21 @@ class GitError(RuntimeError):
 
 
 class Git:
-    def __init__(self, repo_dir: Path, branch: str = "main") -> None:
+    def __init__(self, repo_dir: Path, branch: str = "main", url: str | None = None) -> None:
+        """url: where to fetch from (the public repository over HTTPS, so the service needs no
+        SSH key); None fetches from the checkout's own ``origin``."""
         self.dir = repo_dir
         self.branch = branch
+        self.url = url
+
+    async def fetch(self) -> None:
+        """Update ``origin/<branch>`` from GitHub."""
+        if self.url:
+            await self.run(
+                "fetch", "--quiet", self.url, f"+refs/heads/{self.branch}:refs/remotes/origin/{self.branch}"
+            )
+        else:
+            await self.run("fetch", "--quiet", "origin", self.branch)
 
     async def run(self, *args: str, cwd: Path | None = None, check: bool = True) -> tuple[int, bytes]:
         proc = await asyncio.create_subprocess_exec(
@@ -147,7 +159,7 @@ class Updater:
     async def check(self) -> str:
         """One update check. Returns what happened (also kept in self.last)."""
         async with self._busy:
-            await self.git.run("fetch", "--quiet", "origin", self.git.branch)
+            await self.git.fetch()
             head, new = await self.git.head(), await self.git.resolve(f"origin/{self.git.branch}")
             if new is None or new == head:
                 self._note(True, f"Up to date (version {head[:7]})")

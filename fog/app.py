@@ -92,7 +92,7 @@ class Fog:
         )
         classroom = Classroom(tone=board.tone, board_status=lambda: board_summary(board), bridge=bridge)
         updater = Updater(
-            Git(settings.repo_dir),
+            Git(settings.repo_dir, url=settings.git_url),
             board,
             online=lambda: internet.online,
             public_url=settings.public_url,

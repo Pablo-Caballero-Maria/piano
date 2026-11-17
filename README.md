@@ -154,11 +154,9 @@ metadata) for the servers; it's in the PCs' `.env` (ABLY_API_KEY). The app requi
 clients on lesson channels, so the PC's REST calls identify as the lesson's teacher
 (`X-Ably-ClientId`) and browsers get tokens with their username as clientId.
 
-**Pending (Vercel dashboard):** in the project settings, set **Root Directory** to empty (the
-repository root: the root `vercel.json` then applies; afterwards delete `web/vercel.json`) and add
-the environment variables `PIANO_DATA_KEY` (the same as the PCs'), `MONGODB_URI` and
-`ABLY_API_KEY` (all three are in `.env`). Until then Vercel serves `web/` statically (the page works
-as a standalone piano; accounts and online lessons need the API).
+Vercel (since 2026-11-17): Root Directory = the repository root (so `vercel.json` at the root
+applies), environment variables `PIANO_DATA_KEY` (the same as the PCs'), `MONGODB_URI`,
+`ABLY_API_KEY`.
 
 ## Development
 
@@ -236,7 +234,7 @@ user said the Claude in Chrome extension may be used to set up Ably and Vercel's
 | `deploy/setup.sh` | 🟡 Written, syntax-checked; not run yet (needs sudo: the user runs it) |
 | Real board with the new firmware | ⬜ The board is back with the teacher. It still has the OLD files and **`main.py` renamed to `main_off.py`** (from a memory test): `uv run tools/board.py setup` fixes it |
 | Ably | ✅ Key `piano-server` created; the PC's relay publishes and reads presence against the real Ably |
-| Vercel (root dir, env vars) | ⬜ The settings page wouldn't load in the automated Chrome; secrets must be typed by the user anyway |
+| Vercel (root dir, env vars) | ✅ Set by the user on 2026-11-17 (see the deploy check in History) |
 
 ### Hardware
 - ESP32 dev board, **MicroPython v1.29.0** (`ESP32_GENERIC`), borrowed from the teacher; its own

@@ -19,7 +19,6 @@ import httpx
 
 log = logging.getLogger(__name__)
 CHECK_EVERY_S = 30
-DUCKDNS_EVERY_S = 600
 
 
 def lan_ip() -> str | None:
@@ -87,4 +86,6 @@ class DuckDNS:
     async def run(self) -> None:
         while True:
             await self.tick()
-            await asyncio.sleep(DUCKDNS_EVERY_S if self.ip else CHECK_EVERY_S)
+            # Cheap (the address is looked up locally; DuckDNS is only called when it changes), so
+            # a PC brought back to the classroom points the name at itself within half a minute
+            await asyncio.sleep(CHECK_EVERY_S)
