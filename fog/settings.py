@@ -7,6 +7,7 @@ committed (the repository is public). ``.env.example`` lists every variable.
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -28,6 +29,16 @@ def load_env_file(path: Path) -> dict[str, str]:
             v = v[1:-1]
         out[k.strip()] = v
     return out
+
+
+def public_url(env: Mapping[str, str]) -> str:
+    """The PC's address for phones and the board: PIANO_PUBLIC_URL, or else the classroom's DuckDNS
+    name (DUCKDNS_DOMAIN)."""
+    url = env.get("PIANO_PUBLIC_URL", "").strip()
+    name = env.get("DUCKDNS_DOMAIN", "").strip().removesuffix(".duckdns.org")
+    if not url and name:
+        url = f"https://{name}.duckdns.org"
+    return (url or "https://localhost").rstrip("/")
 
 
 @dataclass(frozen=True)
@@ -66,8 +77,8 @@ class Settings:
             )
         return cls(
             data_key=key,
-            board_id=get("PIANO_BOARD_ID", "piano1"),
-            public_url=get("PIANO_PUBLIC_URL", "https://piano-esp32.duckdns.org").rstrip("/"),
+            board_id=get("PIANO_BOARD_ID") or "piano1",
+            public_url=public_url(env),
             host=get("PIANO_HOST", "127.0.0.1"),
             port=int(get("PIANO_PORT", "8080")),
             mqtt_host=get("MQTT_HOST", "127.0.0.1"),

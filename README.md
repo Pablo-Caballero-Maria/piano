@@ -39,16 +39,18 @@ esp32/       the board's firmware: main.py (boot, rollback, update mode), app.py
 api/         the Vercel function (index.py): the API on Atlas, Ably tokens, live lessons
 web/public/  the website (plain ES modules, no build): js/link.js (class link: WebSocket or
              Ably), js/class.js (lessons, buzzer queue, students), js/studio.js, js/api.js…
+install.sh   sets up a teacher's PC and its board from a fresh clone (asks what it needs)
 deploy/      nginx, Mosquitto, certbot (DuckDNS DNS challenge) and systemd setup: `sudo deploy/setup.sh`
-tools/       board.py (install the board over USB), fake_board.py (pretend board), sim/ (lets the
-             board's MicroPython code run on CPython)
+tools/       board.py (install the board over USB), configure.py (.env questions), fake_board.py
+             (pretend board), sim/ (lets the board's MicroPython code run on CPython)
 tests/       core/, fog/, board/ (also run ON the board), web/ (node), integration (real broker)
 buzzer.py    the very first demo (scales and tunes, no network), run with mpremote
 ```
 
 ## A class
 
-1. Everyone joins the classroom WiFi (the router) and opens **https://piano-esp32.duckdns.org**.
+1. Everyone joins the classroom WiFi (the router) and opens the classroom's address
+   (**https://piano-esp32.duckdns.org** for the first classroom).
 2. **Create an account** (Log in → Create account), choosing **student** or **teacher**. The
    password never leaves the phone (it sends a PBKDF2 key). An account made on any classroom PC or
    online works everywhere once the PC has synced.
@@ -78,40 +80,82 @@ code comments of `web/public/js/studio.js`.
 
 ## Setting up the teacher's PC
 
-On the PC (Arch Linux here; any Linux with systemd works):
+On the PC (Linux with systemd: Arch, Debian/Ubuntu, Fedora), as yourself — not with sudo:
 
 ```sh
-git clone git@github.com:Pablo-Caballero-Maria/piano.git && cd piano
-uv sync                                   # Python 3.12+, all dependencies
-cp .env.example .env && chmod 600 .env    # then fill it in (see below)
-sudo pacman -S nginx mosquitto certbot curl
-sudo deploy/setup.sh                      # certificate, Mosquitto, nginx, the piano-fog service
-uv run python -m fog check                # checks the settings and what's reachable
+git clone https://github.com/Pablo-Caballero-Maria/piano.git && cd piano
+./install.sh            # everything; safe to run again
+./install.sh board      # later, when you plug the board in by USB
+./install.sh config     # change an answer (.env), then ./install.sh again
 ```
 
-`.env` (never committed: the repository is public). **PIANO_DATA_KEY**: create it once with
-`uv run python -m fog keygen` and use the same one on every teacher PC and on Vercel, or they
-can't read each other's data (and keep it: data sealed with a lost key is gone). Also the DuckDNS
-name and token, the classroom WiFi (for the board), MONGODB_URI and ABLY_API_KEY (optional:
-without them the class works offline only). `setup.sh` generates the MQTT passwords.
+`install.sh` installs what's missing (nginx, mosquitto, certbot, curl, uv — asking first), the
+app's Python, asks the questions that fill in `.env` (`tools/configure.py`), runs
+`sudo deploy/setup.sh`, offers to make the PC join the classroom WiFi at boot and to keep running
+with the lid closed while plugged in, installs the board if it's plugged in, and checks it all
+(`uv run python -m fog check`). Everything after that is automatic (next section).
 
-What `deploy/setup.sh` does: points `piano-esp32.duckdns.org` at the PC's **classroom** address
+`.env` (never committed: the repository is public; mode 600). **PIANO_DATA_KEY**, the system key:
+the same on every teacher PC and on Vercel, or they can't read each other's data (keep it: data
+sealed with a lost key is gone). The installer asks for it, or creates a new system when left
+empty. Also this classroom's DuckDNS name and token, the classroom WiFi (for the board and the
+PC), MONGODB_URI and ABLY_API_KEY (optional: without them the class works offline only).
+`setup.sh` generates the MQTT passwords. `PIANO_PUBLIC_URL` defaults to
+`https://<DUCKDNS_DOMAIN>.duckdns.org`.
+
+What `deploy/setup.sh` does: points the DuckDNS name at the PC's **classroom** address
 (phones reach it on the router); gets a Let's Encrypt certificate with a DNS challenge through
-DuckDNS (works on a private address) and enables its renewal; configures Mosquitto (port 1883 on
-localhost for the app, 8883 with TLS for the boards, a user per board that may only use its own
-topics) and nginx (HTTPS on 443 in front of the app, which serves everything: the repository is in
-a home folder nginx can't read); installs the app as the `piano-fog` service (restarts on failure
-and after updates). Logs: `journalctl -u piano-fog -f`.
+DuckDNS (works on a private address) and enables its renewal (the distribution's certbot timer,
+or its own); configures Mosquitto (port 1883 on localhost for the app, 8883 with TLS for the
+boards, a user per board that may only use its own topics) and nginx (HTTPS on 443 in front of
+the app, which serves everything: the repository is in a home folder nginx can't read); installs
+the app as the `piano-fog` service (restarts on failure and after updates). Logs:
+`journalctl -u piano-fog -f`.
 
-The PC keeps the DuckDNS record on its current classroom address. If the router blocks public DNS
-answers that point at private addresses ("DNS rebinding protection"), add a local DNS entry on the
-router, or set `PIANO_SERVER_IP` for the board.
+### Another teacher
+
+The same steps, on their own PC. What they need first (the installer asks for it):
+
+- **their own DuckDNS name** (duckdns.org: sign in, add a name, copy the token): each classroom
+  needs a different one;
+- to join this system (same accounts, public melodies and website): `PIANO_DATA_KEY`,
+  `MONGODB_URI` and `ABLY_API_KEY` from whoever runs it. To start a separate system instead: leave
+  the key empty (a new one is created) and use their own Atlas cluster, Ably app and Vercel project
+  (section "Online");
+- a router in the classroom (with internet, ideally: see below), and its WiFi name and password;
+- an ESP32 with **MicroPython 1.29** (micropython.org/download/ESP32_GENERIC; the installer
+  doesn't flash it) and a passive buzzer on GPIO 33 ("The board");
+- then they create their teacher account on the website.
+
+### Running on its own
+
+After `install.sh`, the PC and the board need nothing else, also after a reboot or carrying the
+PC home and back:
+
+- at boot (no login needed) nginx, Mosquitto and `piano-fog` start; if one fails it's restarted;
+- the board starts when powered, joins the classroom WiFi and retries forever until it reaches the
+  PC (its clock comes from the PC when the classroom has no internet);
+- on every network the PC points the DuckDNS name at its new address within 30 s;
+- with internet (at home too) the PC updates itself from GitHub after running the tests, renews
+  the certificate, and relays lessons; the board is updated at the next class; Atlas syncs when
+  the PC has internet **and** the board at the same time;
+- at home the PC has no board ("board offline"): use the Vercel site.
+
+Conditions: the PC must join the classroom network at boot (the installer's WiFi option, or an
+Ethernet cable) and must not sleep (the lid option; a desktop's own auto-suspend, if any, must be
+off). Phones find the name through public DNS, so the classroom router needs internet; without
+it, or if it blocks public names that point at private addresses ("DNS rebinding protection"),
+reserve the PC's address in the router (DHCP), add a local DNS entry for the name there, and set
+`PIANO_SERVER_IP` in `.env` before `./install.sh board` so the board skips DNS.
 
 ### Trying it without the hardware
 
 - `uv run python -m fog demo` — the whole PC app with a **simulated board** (the board's real
   storage code, in-process), on http://localhost:8080. No broker, nginx or .env needed. The
   buzzer's notes are logged. Open it in two browser profiles to be teacher and student.
+- `uv run python -m fog demo --cloud` — the same with the real system of `.env`: syncs the
+  simulated board (`.demo-board-cloud/`) with Atlas and relays lessons to Ably, so a student on
+  the Vercel site can follow a lesson given on this PC.
 - `uv run tools/fake_board.py` — a pretend board for a real setup: the board's firmware on this
   laptop, connected to Mosquitto (127.0.0.1:1883, or `--tls` on 8883 like the real one), playing
   the buzzer on the laptop's speaker (pacat).
@@ -123,6 +167,7 @@ sits loosely in the breadboard: press it in (or wire straight to its pins), or t
 silent after a note or two (History 8).
 
 ```sh
+./install.sh board              # the same as the next line, after checking the USB port's access
 uv run tools/board.py setup     # USB: firmware + its tests + /config.json from .env, runs the tests, restarts
 uv run tools/board.py test      # the board's test suite, on the board
 uv run tools/board.py log       # what it prints (Ctrl-] to quit)
@@ -152,7 +197,9 @@ from GitHub on every push to `main`.
 Ably: the app **piano-esp32** has a key **piano-server** (publish, subscribe, presence, channel
 metadata) for the servers; it's in the PCs' `.env` (ABLY_API_KEY). The app requires *identified*
 clients on lesson channels, so the PC's REST calls identify as the lesson's teacher
-(`X-Ably-ClientId`) and browsers get tokens with their username as clientId.
+(`X-Ably-ClientId`) and browsers get tokens with their username as clientId. The account uses MAU
+pricing, which only accepts Ably's **v3 device SDK** in browsers (`ably.min-3.js`,
+`AblyPubSub.createClient`; v2 is refused with error 40168).
 
 Vercel (since 2026-11-17): Root Directory = the repository root (so `vercel.json` at the root
 applies), environment variables `PIANO_DATA_KEY` (the same as the PCs'), `MONGODB_URI`,
@@ -197,14 +244,15 @@ PIANO_TEST_MONGODB_URI=… uv run pytest tests/core/test_mongo.py   # against a 
 
 ## Troubleshooting
 
-- **The page doesn't load on a phone**: is it on the classroom router? Does
-  `piano-esp32.duckdns.org` resolve to the PC there (`uv run python -m fog check` prints the LAN
+- **The page doesn't load on a phone**: is it on the classroom router? Does the classroom's
+  DuckDNS name resolve to the PC there (`uv run python -m fog check` prints the LAN
   IP)? Is nginx running (`systemctl status nginx`)?
 - **"board offline"**: is the board's chirp G6-C7 heard? `uv run tools/board.py log` shows what it
   does (WiFi, clock, MQTT errors). Check `journalctl -u mosquitto`.
 - **No /dev/ttyUSB0 but `journalctl -k` shows the CP2102 (`10c4:ea60`)**: the kernel was upgraded
   without a reboot (its `cp210x` module is gone): reboot (or `insmod` it from the cached package).
-- **`mpremote` can't open /dev/ttyUSB0**: the user must be in `uucp`; nothing else may hold the port.
+- **`mpremote` can't open /dev/ttyUSB0**: the user must be in the port's group (`uucp` on Arch,
+  `dialout` on Debian; `./install.sh board` adds it); nothing else may hold the port.
 - **"could not enter raw repl" right after a reset**: the board was still booting; run it again.
 
 ---
@@ -228,10 +276,13 @@ user said the Claude in Chrome extension may be used to set up Ably and Vercel's
 ### Status (2026-11-17)
 | Part | Status |
 |---|---|
-| Shared core, PC app, board firmware, Vercel function, website | ✅ Written and tested: 74 Python + 12 JS tests; MongoRepo checked against the real Atlas cluster |
+| Shared core, PC app, board firmware, Vercel function, website | ✅ Written and tested: 91 Python + 12 JS tests; MongoRepo checked against the real Atlas cluster |
+| Online, end to end (Vercel + Atlas + Ably) | ✅ Two browsers on the Vercel site: sign-up/login, live lesson listed and followed, notes in real time, the teacher sees the student (presence), studio lesson in step, public melody seen by the other user |
+| Classroom ⇄ cloud, end to end | ✅ `fog demo --cloud` (simulated board, real Atlas and Ably): an account and melody made in class reach Atlas and log in on Vercel; a classroom lesson (buzzer playing) followed from the Vercel site; the classroom teacher sees the student at home |
+| `install.sh` | 🟡 Run end to end in a copy of the repository with `sudo` stubbed (questions, .env, the calls it makes); nginx template checked with `nginx -t`. Only tested on Arch |
 | Website in a real browser | ✅ Headless Chrome against `python -m fog demo`: sign-up as teacher/student, piano lesson (notes reach the buzzer and the student's keyboard), studio lesson (student follows read-only, in step), buzzer queue, public melody edited by another user, phone layout |
 | Board ⇄ PC over MQTT | ✅ Firmware's MQTT client + aiomqtt through amqtt (tests) and through Mosquitto with the deploy ACL (manual check) |
-| `deploy/setup.sh` | 🟡 Written, syntax-checked; not run yet (needs sudo: the user runs it) |
+| `deploy/setup.sh` | 🟡 Written, syntax-checked; not run yet (needs sudo: the user runs it, through `./install.sh`) |
 | Real board with the new firmware | ⬜ The board is back with the teacher. It still has the OLD files and **`main.py` renamed to `main_off.py`** (from a memory test): `uv run tools/board.py setup` fixes it |
 | Ably | ✅ Key `piano-server` created; the PC's relay publishes and reads presence against the real Ably |
 | Vercel (root dir, env vars) | ✅ Set by the user on 2026-11-17 (see the deploy check in History) |
@@ -274,10 +325,21 @@ user said the Claude in Chrome extension may be used to set up Ably and Vercel's
    scripts, and tests at every level; found and fixed while testing: a never-called
    `mark_good()` (good updates would have been rolled back), a 32-bit overflow in the store's
    free-space answer on a big disk, and a spurious "your turn" toast for the live teacher.
+6. **2026-11-17, later**: Vercel deployed (root directory = repo root) and tested end to end with
+   two browsers, online and classroom ⇄ cloud (`fog demo --cloud`). Found and fixed: the Vercel
+   API's service dependency ran in a worker thread without an event loop (500 on every route; now
+   async, with clear configuration errors); Ably's MAU pricing refuses the v2 browser SDK (now v3);
+   the PC's REST calls to Ably must be identified; the class panel drew its lists while closed; the
+   classroom teacher didn't see students at home until something else changed. Updates are fetched
+   over HTTPS (no SSH key for the service), DuckDNS is checked every 30 s. Added `install.sh` (one
+   script for a new teacher's PC and board) and `tools/configure.py`. The tests left accounts in
+   the production Atlas: `prueba-profe` (teacher), `prueba-alumno`, `prueba-aula` (students), the
+   public melody "Prueba pública" and a private "Melodía del aula" (their password isn't
+   written here).
 
 ### Not verified yet
-- `deploy/setup.sh` end to end (certificate via DuckDNS, nginx and Mosquitto with TLS, the service).
+- `./install.sh` / `deploy/setup.sh` with real sudo (certificate via DuckDNS, nginx and Mosquitto
+  with TLS, the service, WiFi at boot, lid); on Debian/Ubuntu or Fedora at all.
 - The new firmware on the real board (WiFi, clock, MQTT/TLS with Let's Encrypt, memory headroom,
   an update over WiFi with its on-board tests).
-- Vercel with the API and Ably; online lessons and the classroom relay with a real Ably key.
 - Phones on the classroom router (DNS rebinding protection on the router?).

@@ -8,7 +8,7 @@
 
 - WIFI_SSID, WIFI_PASSWORD: the classroom router;
 - PIANO_BOARD_ID (default piano1) and MQTT_BOARD_PASSWORD (user ``board-<id>`` in Mosquitto);
-- the teacher PC's name, from PIANO_PUBLIC_URL (piano-esp32.duckdns.org): MQTT broker and update
+- the teacher PC's name (PIANO_PUBLIC_URL, or DUCKDNS_DOMAIN.duckdns.org): MQTT broker and update
   server; PIANO_SERVER_IP optionally skips DNS (the certificate is still checked).
 
 Files of the old Bluetooth firmware (store.py, web.py, www/…) are removed; an old-format piano.db
@@ -30,7 +30,7 @@ PROJECT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(PROJECT / "esp32"), str(PROJECT)]
 import updater  # noqa: E402  (esp32/updater.py: which files go on the board, and where)
 
-from fog.settings import load_env_file  # noqa: E402
+from fog.settings import load_env_file, public_url  # noqa: E402
 
 CLEAN = """
 import os
@@ -87,11 +87,14 @@ def board_config(env: dict[str, str]) -> dict:
     missing = [k for k in ("WIFI_SSID", "MQTT_BOARD_PASSWORD") if not env.get(k)]
     if missing:
         sys.exit("Set these in .env first: " + ", ".join(missing))
-    board = env.get("PIANO_BOARD_ID", "piano1")
+    board = env.get("PIANO_BOARD_ID") or "piano1"
+    server = urlparse(public_url(env)).hostname
+    if server in (None, "localhost"):
+        sys.exit("Set DUCKDNS_DOMAIN (or PIANO_PUBLIC_URL) in .env first: the board connects to that name")
     c = {
         "board": board,
         "wifi": {"ssid": env["WIFI_SSID"], "password": env.get("WIFI_PASSWORD", "")},
-        "server": urlparse(env.get("PIANO_PUBLIC_URL", "https://piano-esp32.duckdns.org")).hostname,
+        "server": server,
         "mqtt": {"port": 8883, "user": f"board-{board}", "password": env["MQTT_BOARD_PASSWORD"]},
     }
     if env.get("PIANO_SERVER_IP"):
