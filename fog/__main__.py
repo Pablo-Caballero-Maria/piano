@@ -3,6 +3,8 @@
 - ``serve`` (default): run the teacher's PC server (127.0.0.1:8080; nginx serves it on 443).
 - ``demo``: try it without a board, broker or nginx: a simulated board (its storage in
   .demo-board/, the buzzer's notes in the log), on http://localhost:8080. No .env needed.
+  ``demo --cloud`` also syncs with Atlas and relays lessons to Ably, with .env's PIANO_DATA_KEY,
+  MONGODB_URI and ABLY_API_KEY (the same system as Vercel; its board in .demo-board-cloud/).
 - ``keygen``: print a new system key for PIANO_DATA_KEY (once per installation: every teacher PC
   and Vercel must share the same one, or they can't read each other's data).
 - ``check``: check the settings in .env and what's reachable (MQTT broker, Atlas, Ably, DuckDNS).
@@ -72,27 +74,39 @@ async def check(settings: Settings) -> bool:
     return ok
 
 
-def demo() -> None:
-    """The PC's app with a simulated board and no internet services, on localhost:8080."""
+def demo(cloud: bool = False) -> None:
+    """The PC's app with a simulated board, on localhost:8080: offline, or (cloud) with Atlas sync
+    and the Ably relay of the real system. No MQTT broker, updates or DuckDNS either way."""
+    from dataclasses import replace
+
     import uvicorn
 
     from .app import Fog, create_app
     from .settings import REPO_DIR
     from .simboard import SimulatedBoard
 
-    folder = REPO_DIR / ".demo-board"
+    folder = REPO_DIR / (".demo-board-cloud" if cloud else ".demo-board")
     folder.mkdir(exist_ok=True)
-    key_file = folder / "system.key"  # keeps the demo's accounts readable across runs
-    if not key_file.exists():
-        key_file.write_text(new_system_key())
+    if cloud:
+        real = Settings.load()
+        settings = replace(
+            real, auto_update=False, public_url="http://localhost:8080", duckdns_token="", sync_every_s=60
+        )
+    else:
+        key_file = folder / "system.key"  # keeps the demo's accounts readable across runs
+        if not key_file.exists():
+            key_file.write_text(new_system_key())
+        settings = Settings(
+            data_key=key_file.read_text().strip(), auto_update=False, public_url="http://localhost:8080"
+        )
     log = logging.getLogger("demo")
     board = SimulatedBoard(folder, on_tone=lambda f: log.info("Buzzer: %s", f"{f} Hz" if f else "silence"))
-    settings = Settings(
-        data_key=key_file.read_text().strip(), auto_update=False, public_url="http://localhost:8080"
-    )
     fog = Fog.build(settings, board=board.link)
-    print("Demo: open http://localhost:8080 (the board is simulated; Ctrl-C to stop)")
-    uvicorn.run(create_app(settings, fog, background=False), host="127.0.0.1", port=8080, log_level="warning")
+    fog.skip = {"board", "updater", "duckdns"}  # the board is simulated; nothing updates
+    where = " (cloud: Atlas sync, Ably relay)" if cloud else ""
+    print(f"Demo{where}: open http://localhost:8080 (the board is simulated; Ctrl-C to stop)")
+    app = create_app(settings, fog, background=cloud)
+    uvicorn.run(app, host="127.0.0.1", port=8080, log_level="warning")
 
 
 def main() -> None:
@@ -102,7 +116,7 @@ def main() -> None:
         return
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     if command == "demo":
-        demo()
+        demo(cloud="--cloud" in sys.argv)
         return
     settings = Settings.load()
     if command == "check":

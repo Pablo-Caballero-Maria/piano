@@ -66,6 +66,7 @@ class Fog:
     bridge: AblyBridge | None = None
     duckdns: DuckDNS | None = None
     tasks: list[asyncio.Task[Any]] = field(default_factory=list)
+    skip: set[str] = field(default_factory=set)  # background parts not to start ("board", "updater"…)
 
     @classmethod
     def build(cls, settings: Settings, atlas: Repo | None = None, board: BoardLink | None = None) -> "Fog":
@@ -117,14 +118,17 @@ class Fog:
 
     def start(self) -> None:
         s = self.settings
-        jobs = [
-            self.board.run(s.mqtt_host, s.mqtt_port, s.mqtt_user, s.mqtt_password),
-            self.internet.run(),
-            self.sync.run(),
-            self.updater.run(),
+        jobs = {
+            "board": lambda: self.board.run(s.mqtt_host, s.mqtt_port, s.mqtt_user, s.mqtt_password),
+            "internet": self.internet.run,
+            "sync": self.sync.run,
+            "updater": self.updater.run,
+            "duckdns": self.duckdns.run if self.duckdns else None,
+            "bridge": self.bridge.run if self.bridge else None,
+        }
+        self.tasks = [
+            asyncio.create_task(job()) for name, job in jobs.items() if job and name not in self.skip
         ]
-        jobs += [x.run() for x in (self.duckdns, self.bridge) if x is not None]
-        self.tasks = [asyncio.create_task(job) for job in jobs]
 
     async def stop(self) -> None:
         for t in self.tasks:

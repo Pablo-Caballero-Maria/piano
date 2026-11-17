@@ -18,3 +18,4 @@ node_modules/
 HANDOFF.md
 .demo-board/
 .fake-board/
+.demo-board-cloud/

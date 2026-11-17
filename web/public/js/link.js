@@ -6,7 +6,8 @@
 //   lessons {teachers} (online), error {message}, status {state, text}.
 import * as api from "./api.js";
 
-const ABLY_SDK = "https://cdn.ably.com/lib/ably.min-2.js";
+// Ably accounts on MAU pricing only accept the v3 device SDK on browsers (error 40168 with v2)
+const ABLY_SDK = "https://cdn.ably.com/lib/ably.min-3.js";
 const handlers = new Map();
 let transport = null;
 let mode = null; // "classroom" | "online" | null
@@ -116,7 +117,7 @@ function loadAbly() {
   sdk ??= new Promise((resolve, reject) => {
     const s = document.createElement("script");
     s.src = ABLY_SDK;
-    s.onload = () => resolve(window.Ably);
+    s.onload = () => resolve(window.AblyPubSub);
     s.onerror = () => reject(new Error("Couldn't load Ably"));
     document.head.append(s);
   });
@@ -137,9 +138,10 @@ class Online {
 
   async start() {
     status("connecting", "Connecting…");
-    const Ably = await loadAbly();
+    const AblyPubSub = await loadAbly();
     if (this.closed) return;
-    this.client = new Ably.Realtime({
+    // Tokens come from Vercel (api/index.py) with my username as clientId (required under MAU)
+    this.client = AblyPubSub.createClient({
       authCallback: (params, cb) => api.post("/ably/token").then((tr) => cb(null, tr), (e) => cb(e.message, null)),
     });
     this.client.connection.on("connected", () => { this.open = true; status("on", "Online"); this.lessons(); });
