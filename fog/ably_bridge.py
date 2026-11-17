@@ -12,7 +12,7 @@ import asyncio
 import contextlib
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import httpx
@@ -38,6 +38,7 @@ class AblyBridge:
         self._live: str | None = None
         self._followers: list[dict[str, Any]] = []
         self._polled = 0.0
+        self.on_followers: Callable[[], Awaitable[None]] | None = None  # the class: tell the teachers
 
     def publish(self, teacher: str, name: str, data: Any) -> None:
         """Queue a lesson event (returns at once)."""
@@ -72,7 +73,7 @@ class AblyBridge:
         except Exception as e:
             log.warning("Ably presence failed: %r", e)
             return
-        self._followers = [
+        followers = [
             {
                 "id": "ably:" + str(p["clientId"]),
                 "name": str(p["clientId"]),
@@ -86,6 +87,11 @@ class AblyBridge:
             for p in members
             if p["clientId"] and str(p["clientId"]).lower() != self._live.lower()  # not the teacher
         ]
+        followers = list({f["id"]: f for f in followers}.values())  # one per student (several tabs)
+        if followers != self._followers:
+            self._followers = followers
+            if self.on_followers is not None:
+                await self.on_followers()
 
     async def run(self) -> None:
         while True:

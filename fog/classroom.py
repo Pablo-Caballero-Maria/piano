@@ -81,6 +81,8 @@ class Classroom:
         self._tone = tone
         self._board_status = board_status
         self.bridge = bridge
+        if bridge is not None:  # students at home joining or leaving: update the teachers' list
+            bridge.on_followers = self._people_changed
         self.members: dict[int, Member] = {}
         self.queue = BuzzerQueue()
         self.lesson_mode = "piano"

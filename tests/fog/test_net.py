@@ -54,9 +54,17 @@ async def test_the_bridge_publishes_the_latest_of_each_kind_and_lists_followers(
     posts = [json.loads(body) for method, path, body in calls if method == "POST"]
     assert [p["name"] for p in posts] == ["lesson", "note"] and json.loads(posts[1]["data"])["freq"] == 330
     assert all(path == "/channels/class%3Ateach/messages" for m, path, _ in calls if m == "POST")
+    told = []
+
+    async def changed():
+        told.append(1)
+
+    bridge.on_followers = changed
     await bridge._poll_presence()
     followers = bridge.followers("Teach")
     assert [(f["name"], f["mode"], f["remote"]) for f in followers] == [("zoe", "studio", True)]
+    await bridge._poll_presence()  # nothing new: the class isn't told again
+    assert told == [1]
     bridge.publish("Teach", "lesson", {"live": False})
     assert bridge.followers("Teach") == []
 
