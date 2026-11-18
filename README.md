@@ -95,8 +95,9 @@ git clone https://github.com/Pablo-Caballero-Maria/piano.git && cd piano
 app's Python, builds the website (with the Node.js that uv installs: the `web` group of
 `pyproject.toml`, so every PC builds it with the same version), asks the questions that fill in
 `.env` (`tools/configure.py`), runs
-`sudo deploy/setup.sh`, offers to make the PC join the classroom WiFi at boot and to keep running
-with the lid closed while plugged in, installs the board if it's plugged in, and checks it all
+`sudo deploy/setup.sh`, offers to make the PC join the classroom WiFi at boot (once the PC has
+joined it as usual: it keeps that connection, whose password works, and warns if `.env`'s differs)
+and to keep running with the lid closed while plugged in, installs the board if it's plugged in, and checks it all
 (`uv run python -m fog check`). Everything after that is automatic (next section).
 
 `.env` (never committed: the repository is public; mode 600). **PIANO_DATA_KEY**, the system key:
@@ -263,6 +264,12 @@ npm run build && npm run test:e2e    # the static site, then Playwright in Chrom
   IP)? Is nginx running (`systemctl status nginx`)?
 - **"board offline"**: is the board's chirp G6-C7 heard? `uv run tools/board.py log` shows what it
   does (WiFi, clock, MQTT errors). Check `journalctl -u mosquitto`.
+- **The board can't join the WiFi** (its log says why): it needs a **2.4 GHz** network that asks
+  only for a password (WPA2; not eduroam or another one with a username). *wrong password*: fix it
+  with `./install.sh config`, then `./install.sh board`; *not in range*: also what a 5 GHz network
+  looks like (a phone's hotspot: set its band to 2.4 GHz); *the network is full*: a phone's hotspot
+  takes only a few devices (an iPhone's especially), and the board and the PC both need a place.
+  The PC must be on the same network as the board.
 - **No /dev/ttyUSB0 but `journalctl -k` shows the CP2102 (`10c4:ea60`)**: the kernel was upgraded
   without a reboot (its `cp210x` module is gone): reboot (or `insmod` it from the cached package).
 - **`mpremote` can't open /dev/ttyUSB0**: the user must be in the port's group (`uucp` on Arch,
@@ -287,18 +294,18 @@ offline whose name was taken meanwhile is renamed, its old name still logs in); 
 for online lessons and relaying classroom lessons; **one system key** on PCs and Vercel. The
 user said the Claude in Chrome extension may be used to set up Ably and Vercel's variables.
 
-### Status (2026-11-17)
+### Status (2026-11-18)
 | Part | Status |
 |---|---|
 | Shared core, PC app, board firmware, Vercel function | ✅ Written and tested: 97 Python tests; MongoRepo checked against the real Atlas cluster |
 | Website (Next.js + TypeScript, since 2026-11-18) | ✅ 90 Vitest tests (logic, services, Studio engine, components) and 4 Playwright tests in Chrome against `fog demo` (piano lesson, buzzer queue, studio save/reload, studio lesson); looks the same as the old page (screenshots compared, desktop and phone) |
 | Online, end to end (Vercel + Atlas + Ably) | ✅ Two browsers on the Vercel site: sign-up/login, live lesson listed and followed, notes in real time, the teacher sees the student (presence), studio lesson in step, public melody seen by the other user |
 | Classroom ⇄ cloud, end to end | ✅ `fog demo --cloud` (simulated board, real Atlas and Ably): an account and melody made in class reach Atlas and log in on Vercel; a classroom lesson (buzzer playing) followed from the Vercel site; the classroom teacher sees the student at home |
-| `install.sh` | 🟡 Run end to end in a copy of the repository with `sudo` stubbed (questions, .env, the calls it makes); nginx template checked with `nginx -t`. Only tested on Arch |
+| `install.sh` | ✅ Run for real on the laptop (Arch) on 2026-11-18: packages, website, .env, `setup.sh`, board. Not tried on Debian/Ubuntu or Fedora |
 | Website in a real browser | ✅ Headless Chrome against `python -m fog demo`: sign-up as teacher/student, piano lesson (notes reach the buzzer and the student's keyboard), studio lesson (student follows read-only, in step), buzzer queue, public melody edited by another user, phone layout |
 | Board ⇄ PC over MQTT | ✅ Firmware's MQTT client + aiomqtt through amqtt (tests) and through Mosquitto with the deploy ACL (manual check) |
-| `deploy/setup.sh` | 🟡 Written, syntax-checked; not run yet (needs sudo: the user runs it, through `./install.sh`) |
-| Real board with the new firmware | ⬜ The board is back with the teacher. It still has the OLD files and **`main.py` renamed to `main_off.py`** (from a memory test): `uv run tools/board.py setup` fixes it |
+| `deploy/setup.sh` | ✅ Run for real (2026-11-18): DuckDNS, Let's Encrypt certificate by DNS challenge, Mosquitto (TLS on 8883, users, ACL), nginx (HTTPS), the `piano-fog` service |
+| Real board with the new firmware | ✅ Installed over USB (old Bluetooth files removed); its 18 tests pass on the board; on a phone's hotspot it joins the WiFi, connects to the PC's Mosquitto over TLS (Let's Encrypt certificate checked), syncs with Atlas through the PC, and the PC updated it over WiFi (download, git hashes, on-board tests, restart) |
 | Ably | ✅ Key `piano-server` created; the PC's relay publishes and reads presence against the real Ably |
 | Vercel (root dir, env vars) | ✅ Set by the user on 2026-11-17 (see the deploy check in History) |
 
@@ -375,12 +382,24 @@ user said the Claude in Chrome extension may be used to set up Ably and Vercel's
    on the browser's guesswork and could keep old scripts after an update). Found while measuring:
    following a #studio link while the page was starting could leave it in piano mode (fixed:
    useMode reads where the address went, from the hashchange event).
+8. **2026-11-18, later**: the first real install on the laptop, with the board plugged in. The
+   laptop is on eduroam, where the board can't go (username + password, and clients isolated), so
+   a phone's hotspot played the classroom router. Found and fixed: `tools/board.py setup` called a
+   function that didn't exist (the board had never been installed with it); after a failed join the
+   board's WiFi retries all failed with "Wifi Internal State Error" (the driver keeps retrying on
+   its own: now stopped first) and its log now says why a join fails (wrong password, out of range
+   or 5 GHz, network full); `install.sh`'s "join at boot" made a system connection from `.env`'s
+   password, which was wrong, so NetworkManager kept using it without asking (now it only converts
+   a network the PC has joined, and warns if `.env`'s password differs); httpx logged DuckDNS's
+   token (in the update URL) to the journal; Mosquitto 2.1 warned that its password and ACL files
+   must belong to it; systemd marked every stop of `piano-fog` as failed (uv exits 143). Seen:
+   an iPhone hotspot was WPA2/WPA3 on 2.4 GHz and refused the board as full (ESP32 reason 5); a
+   Redmi hotspot on 5 GHz was invisible to it; on a Redmi hotspot set to 2.4 GHz everything worked.
 
 ### Not verified yet
-- `./install.sh` / `deploy/setup.sh` with real sudo (certificate via DuckDNS, nginx and Mosquitto
-  with TLS, the service, WiFi at boot, lid); on Debian/Ubuntu or Fedora at all.
-- The new firmware on the real board (WiFi, clock, MQTT/TLS with Let's Encrypt, memory headroom,
-  an update over WiFi with its on-board tests).
-- Phones on the classroom router (DNS rebinding protection on the router?).
+- `./install.sh` on Debian/Ubuntu or Fedora; its "join at boot" and lid options (not used: the
+  network was a phone's hotspot).
+- A real classroom router, and phones on it (DNS rebinding protection on the router?).
+- The board's clock from the PC's Date header (a classroom without internet).
 - A real update of a teacher PC to a new version through the service (its commands were run by
   hand on a fresh worktree, see History 7).

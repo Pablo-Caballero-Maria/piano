@@ -28,19 +28,37 @@ RETRY_S = 5
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 
+# Why a WiFi join failed, by WLAN status (the ESP32's numbers when the port has no constant)
+WIFI_WHY = {
+    5: "the network is full (a phone's hotspot takes only a few devices)",  # ASSOC_TOOMANY
+    getattr(network, "STAT_NO_AP_FOUND", 201): "not in range (the board only sees 2.4 GHz networks)",
+    getattr(network, "STAT_WRONG_PASSWORD", 202): "wrong password",
+    getattr(network, "STAT_ASSOC_FAIL", 203): "the router refused the board",
+    getattr(network, "STAT_HANDSHAKE_TIMEOUT", 204): "no answer to the password (wrong password?)",
+}
+
+
 def wifi_connect(c, timeout_s=30):
     """Join the classroom WiFi (returns at once if already connected)."""
     sta = network.WLAN(network.STA_IF)
     sta.active(True)
     if sta.isconnected():
         return sta
-    sta.connect(c["wifi"]["ssid"], c["wifi"].get("password") or None)
+    ssid = c["wifi"]["ssid"]
+    # The WiFi driver keeps retrying a failed join by itself, and refuses connect() meanwhile
+    # ("Wifi Internal State Error"): stop it first, so every attempt starts afresh
+    sta.disconnect()
+    sta.connect(ssid, c["wifi"].get("password") or None)
     start = time.ticks_ms()
+    why = None
     while not sta.isconnected():
+        status = sta.status()
+        why = WIFI_WHY.get(status, why)  # it flips back to "connecting" while retrying
         if time.ticks_diff(time.ticks_ms(), start) > timeout_s * 1000:
-            raise OSError("can't join WiFi %s (status %s)" % (c["wifi"]["ssid"], sta.status()))
+            sta.disconnect()
+            raise OSError("can't join WiFi %s: %s" % (ssid, why or "status %s" % status))
         time.sleep_ms(200)
-    print("WiFi:", c["wifi"]["ssid"], sta.ifconfig()[0])
+    print("WiFi:", ssid, sta.ifconfig()[0])
     return sta
 
 

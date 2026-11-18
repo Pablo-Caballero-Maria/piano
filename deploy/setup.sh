@@ -104,8 +104,9 @@ fill "$DEPLOY/mosquitto.conf" > /etc/mosquitto/mosquitto.conf
 rm -f /etc/mosquitto/piano.passwd
 mosquitto_passwd -b -c /etc/mosquitto/piano.passwd fog "$(env_get MQTT_FOG_PASSWORD)"
 mosquitto_passwd -b /etc/mosquitto/piano.passwd "board-$BOARD" "$(env_get MQTT_BOARD_PASSWORD)"
-chown root:mosquitto /etc/mosquitto/piano.passwd /etc/mosquitto/piano.acl
-chmod 640 /etc/mosquitto/piano.passwd /etc/mosquitto/piano.acl
+# Owned by mosquitto, readable by it alone (Mosquitto 2.1 warns otherwise; later versions refuse)
+chown mosquitto:mosquitto /etc/mosquitto/piano.passwd /etc/mosquitto/piano.acl
+chmod 600 /etc/mosquitto/piano.passwd /etc/mosquitto/piano.acl
 /etc/piano/certbot-deploy.sh  # the certificate copy for Mosquitto
 [ -f /etc/nginx/nginx.conf.orig ] || cp -a /etc/nginx/nginx.conf /etc/nginx/nginx.conf.orig
 fill "$DEPLOY/nginx.conf" > /etc/nginx/nginx.conf

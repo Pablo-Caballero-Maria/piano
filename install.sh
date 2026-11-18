@@ -12,8 +12,9 @@
 # 4. fills in .env: asks for what's missing (tools/configure.py);
 # 5. sets up the PC (sudo deploy/setup.sh): DuckDNS, the certificate, Mosquitto, nginx and the
 #    piano-fog service, all started at every boot;
-# 6. offers to make the PC join the classroom WiFi at boot (before anyone logs in) and to keep it
-#    running with the lid closed while plugged in;
+# 6. offers to make the PC join the classroom WiFi at boot (before anyone logs in; only once the PC
+#    has joined it as usual, so its password is known to work) and to keep it running with the lid
+#    closed while plugged in;
 # 7. installs the board's firmware if the board is plugged in by USB (tools/board.py setup);
 # 8. checks everything (python -m fog check).
 set -euo pipefail
@@ -84,8 +85,10 @@ pc() {
     sudo "$REPO/deploy/setup.sh"
 }
 
+# Only a network this PC has joined before, with the password that worked then: a connection made
+# from .env's password alone would be used without asking, and never work if that password is wrong
 wifi_at_boot() {
-    local ssid pass uuid="" type id
+    local ssid pass uuid="" type id saved flags
     ssid=$(env_get WIFI_SSID)
     pass=$(env_get WIFI_PASSWORD)
     command -v nmcli > /dev/null && [ -n "$ssid" ] || return 0
@@ -96,20 +99,26 @@ wifi_at_boot() {
             break
         fi
     done < <(nmcli -t -f UUID,TYPE connection show)
-    if [ -n "$uuid" ] && [ -z "$(nmcli -g connection.permissions connection show "$uuid")" ] &&
-        [ "$(nmcli -g 802-11-wireless-security.psk-flags connection show "$uuid" 2> /dev/null || echo 0)" = 0 ]; then
+    if [ -z "$uuid" ]; then
+        echo "   To have this PC join \"$ssid\" at boot: connect to it once as usual, then run ./install.sh again"
+        return 0
+    fi
+    # The password this PC uses for it (when NetworkManager can show it) is the one that works
+    saved=$(nmcli -s -g 802-11-wireless-security.psk connection show "$uuid" 2> /dev/null || true)
+    if [ -n "$saved" ] && [ "$saved" != "$pass" ]; then
+        echo "   WIFI_PASSWORD in .env isn't the password this PC uses for \"$ssid\": the board won't join it."
+        echo "   Correct it with ./install.sh config, then run ./install.sh board"
+    fi
+    flags=$(nmcli -g 802-11-wireless-security.psk-flags connection show "$uuid" 2> /dev/null || echo 0)
+    if [ -z "$(nmcli -g connection.permissions connection show "$uuid")" ] && [ "$flags" = 0 ]; then
         echo "   joins \"$ssid\" at boot already"
         return 0
     fi
     ask "Join the classroom WiFi \"$ssid\" at boot, before anyone logs in? (its password is stored for the system, readable only by root)" || return 0
     # The password goes on nmcli's command line: visible to other users of this PC for an instant
-    local secret=()
-    if [ -n "$pass" ]; then secret=(wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$pass" wifi-sec.psk-flags 0); fi
-    if [ -n "$uuid" ]; then
-        sudo nmcli connection modify "$uuid" connection.permissions "" connection.autoconnect yes "${secret[@]}"
-    else
-        sudo nmcli connection add type wifi con-name "$ssid" ssid "$ssid" connection.autoconnect yes "${secret[@]}" > /dev/null
-    fi
+    local secret=() psk=${saved:-$pass}
+    if [ "$flags" != 0 ] && [ -n "$psk" ]; then secret=(wifi-sec.psk "$psk" wifi-sec.psk-flags 0); fi
+    sudo nmcli connection modify "$uuid" connection.permissions "" connection.autoconnect yes "${secret[@]}"
     echo "   done: it joins \"$ssid\" whenever it's in range"
 }
 

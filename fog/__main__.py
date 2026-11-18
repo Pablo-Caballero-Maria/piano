@@ -137,6 +137,9 @@ def main() -> None:
         print(new_system_key())
         return
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    # httpx logs every request's URL at INFO, and DuckDNS's token goes in the URL: keep it out of the
+    # journal (fog.internet logs the DuckDNS update itself, without the token)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     if command == "demo":
         args = sys.argv[2:]
         port = int(args[args.index("--port") + 1]) if "--port" in args else 8080

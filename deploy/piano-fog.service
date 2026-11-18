@@ -11,6 +11,8 @@ WorkingDirectory=@REPO@
 ExecStart=@UV@ run --frozen python -m fog serve
 Restart=always
 RestartSec=3
+# uv exits 143 when systemd stops it (SIGTERM), after the app has shut down cleanly
+SuccessExitStatus=143
 Environment=PYTHONUNBUFFERED=1
 
 [Install]

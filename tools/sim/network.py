@@ -16,6 +16,9 @@ class WLAN:
     def connect(self, ssid, password=None):
         pass
 
+    def disconnect(self):
+        pass
+
     def isconnected(self):
         return True
 

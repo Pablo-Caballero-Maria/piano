@@ -19,6 +19,7 @@ the teacher's PC keeps the board up to date over WiFi (fog/updater.py, esp32/ota
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -73,6 +74,11 @@ def git(*args: str) -> str:
     return subprocess.run(["git", *args], cwd=PROJECT, capture_output=True, text=True, check=True).stdout
 
 
+def blob_sha(data: bytes) -> str:
+    """The file's git hash (what `git ls-tree` lists and esp32/ota.py checks after a download)."""
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
 def board_files() -> list[tuple[str, str]]:
     """[(repo path, board path)] of every project file that goes on the board (tracked or new)."""
     paths = git("ls-files", "--cached", "--others", "--exclude-standard").split("\n")
@@ -114,7 +120,7 @@ def setup(port: str) -> None:
     env = load_env_file(PROJECT / ".env")
     files = board_files()
     sha = git("rev-parse", "HEAD").strip() + ("-dirty" if git("status", "--porcelain").strip() else "")
-    version = {"sha": sha, "files": {p: updater.blob_sha((PROJECT / p).read_bytes()) for p, _ in files}}
+    version = {"sha": sha, "files": {p: blob_sha((PROJECT / p).read_bytes()) for p, _ in files}}
     with tempfile.TemporaryDirectory() as tmp:
         (Path(tmp) / "config.json").write_text(json.dumps(board_config(env)))
         (Path(tmp) / "version.json").write_text(json.dumps(version))
