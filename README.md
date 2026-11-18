@@ -306,6 +306,7 @@ user said the Claude in Chrome extension may be used to set up Ably and Vercel's
 | Board ⇄ PC over MQTT | ✅ Firmware's MQTT client + aiomqtt through amqtt (tests) and through Mosquitto with the deploy ACL (manual check) |
 | `deploy/setup.sh` | ✅ Run for real (2026-11-18): DuckDNS, Let's Encrypt certificate by DNS challenge, Mosquitto (TLS on 8883, users, ACL), nginx (HTTPS), the `piano-fog` service |
 | Real board with the new firmware | ✅ Installed over USB (old Bluetooth files removed); its 18 tests pass on the board; on a phone's hotspot it joins the WiFi, connects to the PC's Mosquitto over TLS (Let's Encrypt certificate checked), syncs with Atlas through the PC, and the PC updated it over WiFi (download, git hashes, on-board tests, restart) |
+| A class with the real hardware | ✅ 2026-11-18, on a phone's hotspot: two phones (a teacher and a student account) on `https://piano-esp32.duckdns.org`, the buzzer playing, a melody saved on one phone and opened on the other |
 | Ably | ✅ Key `piano-server` created; the PC's relay publishes and reads presence against the real Ably |
 | Vercel (root dir, env vars) | ✅ Set by the user on 2026-11-17 (see the deploy check in History) |
 
@@ -399,7 +400,7 @@ user said the Claude in Chrome extension may be used to set up Ably and Vercel's
 ### Not verified yet
 - `./install.sh` on Debian/Ubuntu or Fedora; its "join at boot" and lid options (not used: the
   network was a phone's hotspot).
-- A real classroom router, and phones on it (DNS rebinding protection on the router?).
+- A real classroom router (DNS rebinding protection on the router?): so far a phone's hotspot.
 - The board's clock from the PC's Date header (a classroom without internet).
 - A real update of a teacher PC to a new version through the service (its commands were run by
   hand on a fresh worktree, see History 7).
