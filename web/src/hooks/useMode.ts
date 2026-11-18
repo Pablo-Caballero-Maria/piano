@@ -16,10 +16,12 @@ export function useMode(): [Mode | null, (mode: Mode) => void] {
   const [mode, setMode] = useState<Mode | null>(null);
 
   useEffect(() => {
-    const fromAddress = () => parseMode(location.hash.slice(1));
+    const fromHash = (hash: string) => parseMode(hash.slice(1));
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the address is only known in the browser
-    setMode(fromAddress() ?? parseMode(readItem(STORAGE_KEYS.mode)) ?? "piano");
-    const onHashChange = () => setMode(fromAddress() ?? "piano");
+    setMode(fromHash(location.hash) ?? parseMode(readItem(STORAGE_KEYS.mode)) ?? "piano");
+    // Where the address went (event.newURL), not where it is when the event arrives: the effect
+    // below may have rewritten it meanwhile (a link to #studio followed while the page starts)
+    const onHashChange = (e: HashChangeEvent) => setMode(fromHash(new URL(e.newURL).hash) ?? "piano");
     addEventListener("hashchange", onHashChange);
     return () => removeEventListener("hashchange", onHashChange);
   }, []);

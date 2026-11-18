@@ -291,7 +291,7 @@ user said the Claude in Chrome extension may be used to set up Ably and Vercel's
 | Part | Status |
 |---|---|
 | Shared core, PC app, board firmware, Vercel function | ✅ Written and tested: 97 Python tests; MongoRepo checked against the real Atlas cluster |
-| Website (Next.js + TypeScript, since 2026-11-18) | ✅ 87 Vitest tests (logic, services, Studio engine, components) and 4 Playwright tests in Chrome against `fog demo` (piano lesson, buzzer queue, studio save/reload, studio lesson); looks the same as the old page (screenshots compared, desktop and phone) |
+| Website (Next.js + TypeScript, since 2026-11-18) | ✅ 90 Vitest tests (logic, services, Studio engine, components) and 4 Playwright tests in Chrome against `fog demo` (piano lesson, buzzer queue, studio save/reload, studio lesson); looks the same as the old page (screenshots compared, desktop and phone) |
 | Online, end to end (Vercel + Atlas + Ably) | ✅ Two browsers on the Vercel site: sign-up/login, live lesson listed and followed, notes in real time, the teacher sees the student (presence), studio lesson in step, public melody seen by the other user |
 | Classroom ⇄ cloud, end to end | ✅ `fog demo --cloud` (simulated board, real Atlas and Ably): an account and melody made in class reach Atlas and log in on Vercel; a classroom lesson (buzzer playing) followed from the Vercel site; the classroom teacher sees the student at home |
 | `install.sh` | 🟡 Run end to end in a copy of the repository with `sudo` stubbed (questions, .env, the calls it makes); nginx template checked with `nginx -t`. Only tested on Arch |
@@ -367,6 +367,14 @@ user said the Claude in Chrome extension may be used to set up Ably and Vercel's
    (Vercel's `api/index.py` run locally with an in-memory store, two Chrome contexts: lesson
    listed and joined, notes both ways, presence). Seen then: `/api/live` answers 500 when Ably
    rate-limits channel listing (429) after many Refresh clicks; the page shrugs it off.
+   Performance, measured against the old page in Chrome as a mid-range phone (CPU 4× slower, slow
+   4G): the first visit downloads ~170 KB gzipped instead of ~40 KB (React and Next.js's runtime;
+   the app's own code is ~23 KB) and the keyboard is usable after ~1.3 s instead of ~0.8 s; playing
+   costs the same (~1 ms more per key press, the note leaves before React redraws; Studio playback
+   equal). Later visits revalidate the page once and keep the hashed scripts (the old page relied
+   on the browser's guesswork and could keep old scripts after an update). Found while measuring:
+   following a #studio link while the page was starting could leave it in piano mode (fixed:
+   useMode reads where the address went, from the hashchange event).
 
 ### Not verified yet
 - `./install.sh` / `deploy/setup.sh` with real sudo (certificate via DuckDNS, nginx and Mosquitto
