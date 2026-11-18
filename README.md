@@ -90,6 +90,8 @@ git clone https://github.com/Pablo-Caballero-Maria/piano.git && cd piano
 ./install.sh            # everything; safe to run again
 ./install.sh board      # later, when you plug the board in by USB
 ./install.sh config     # change an answer (.env), then ./install.sh again
+sudo deploy/uninstall.sh # undo it on this PC: services, certificate, configuration (keeps
+                         # the packages, the repository and .env, the DuckDNS name, the board)
 ```
 
 `install.sh` installs what's missing (nginx, mosquitto, certbot, curl, uv — asking first), the

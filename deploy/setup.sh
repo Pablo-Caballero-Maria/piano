@@ -11,7 +11,8 @@
 #      enables its automatic renewal (certbot-renew.timer);
 #   4. configures Mosquitto (TLS for the boards, users and per-board topic rights) and nginx (HTTPS);
 #   5. installs and starts the app as a service (piano-fog), restarting on failure and after updates.
-# Original /etc/nginx/nginx.conf and /etc/mosquitto/mosquitto.conf are kept as *.orig.
+# Original /etc/nginx/nginx.conf and /etc/mosquitto/mosquitto.conf are kept as *.orig, and what was
+# enabled before in /etc/piano/before: `sudo deploy/uninstall.sh` undoes all of this.
 set -euo pipefail
 
 [ "$(id -u)" = 0 ] || { echo "Run it with sudo: sudo deploy/setup.sh" >&2; exit 1; }
@@ -38,6 +39,17 @@ env_get() { grep -E "^$1=" "$ENV_FILE" | tail -1 | cut -d= -f2- | sed -e 's/^"//
 env_set() {  # add or replace KEY=value in .env, keeping its owner and permissions
     if grep -qE "^$1=" "$ENV_FILE"; then sed -i "s|^$1=.*|$1=$2|" "$ENV_FILE"; else echo "$1=$2" >> "$ENV_FILE"; fi
 }
+
+# What this PC had before the first run, so deploy/uninstall.sh can leave it as it was
+install -d -m 700 /etc/piano
+if [ ! -f /etc/piano/before ]; then
+    {
+        for unit in nginx.service mosquitto.service certbot-renew.timer certbot.timer snap.certbot.renew.timer; do
+            echo "$unit=$(systemctl is-enabled "$unit" 2> /dev/null || true)"
+        done
+        if [ -d /etc/letsencrypt ]; then echo "letsencrypt=present"; else echo "letsencrypt=absent"; fi
+    } > /etc/piano/before
+fi
 
 DOMAIN_NAME=$(env_get DUCKDNS_DOMAIN)
 TOKEN=$(env_get DUCKDNS_TOKEN)
