@@ -47,6 +47,7 @@ tools/       board.py (install the board over USB), configure.py (.env questions
 tests/       core/, fog/, board/ (also run ON the board), integration (real broker); the website's
              tests are in web/tests (Vitest) and web/e2e (Playwright)
 buzzer.py    the very first demo (scales and tunes, no network), run with mpremote
+docs/memoria/ the project report's diagrams (`uv run python docs/memoria/diagramas.py` redraws them)
 ```
 
 ## A class
