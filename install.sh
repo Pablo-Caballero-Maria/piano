@@ -8,13 +8,14 @@
 #
 # 1. installs what's missing: nginx, mosquitto, certbot, curl (pacman, apt or dnf) and uv;
 # 2. the app's Python and libraries (uv sync);
-# 3. fills in .env: asks for what's missing (tools/configure.py);
-# 4. sets up the PC (sudo deploy/setup.sh): DuckDNS, the certificate, Mosquitto, nginx and the
+# 3. builds the website (web/, Next.js) with the Node.js that uv installs (fog/website.py);
+# 4. fills in .env: asks for what's missing (tools/configure.py);
+# 5. sets up the PC (sudo deploy/setup.sh): DuckDNS, the certificate, Mosquitto, nginx and the
 #    piano-fog service, all started at every boot;
-# 5. offers to make the PC join the classroom WiFi at boot (before anyone logs in) and to keep it
+# 6. offers to make the PC join the classroom WiFi at boot (before anyone logs in) and to keep it
 #    running with the lid closed while plugged in;
-# 6. installs the board's firmware if the board is plugged in by USB (tools/board.py setup);
-# 7. checks everything (python -m fog check).
+# 7. installs the board's firmware if the board is plugged in by USB (tools/board.py setup);
+# 8. checks everything (python -m fog check).
 set -euo pipefail
 
 REPO=$(cd "$(dirname "$0")" && pwd)
@@ -64,13 +65,22 @@ python_deps() {
     echo "   ready"
 }
 
+website() {
+    say "3. The website"
+    # Node.js comes from uv (the "web" group of pyproject.toml): the same version on every PC
+    export NEXT_TELEMETRY_DISABLED=1  # Next.js's anonymous usage data: not from this PC
+    uv run --frozen --group web npm ci --prefix web --no-audit --no-fund --loglevel=error
+    uv run --frozen --group web npm run build --prefix web
+    echo "   built (web/out); updates rebuild it after testing"
+}
+
 configure() {
-    say "3. Settings (.env)"
+    say "4. Settings (.env)"
     uv run --frozen tools/configure.py "$@"
 }
 
 pc() {
-    say "4. This PC (sudo deploy/setup.sh)"
+    say "5. This PC (sudo deploy/setup.sh)"
     sudo "$REPO/deploy/setup.sh"
 }
 
@@ -115,7 +125,7 @@ lid() {
 }
 
 board() {
-    say "6. The board"
+    say "7. The board"
     local port=${1:-} group
     [ -n "$port" ] || port=$(ls /dev/ttyUSB* /dev/ttyACM* 2> /dev/null | head -1 || true)
     if [ -z "$port" ]; then
@@ -137,7 +147,7 @@ board() {
 }
 
 check() {
-    say "7. Check"
+    say "8. Check"
     uv run --frozen python -m fog check || echo "   (see the BAD lines above)"
 }
 
@@ -154,9 +164,10 @@ config)
 all)
     packages
     python_deps
+    website
     configure
     pc
-    say "5. Running on its own"
+    say "6. Running on its own"
     wifi_at_boot
     lid
     failed=0

@@ -1,0 +1,70 @@
+/* Phones and short (landscape) screens: last, so these win. */
+/* ---- Small screens ---- */
+@media (max-width: 760px) {
+  h1 {
+    display: none;
+  }
+  .tabs button {
+    padding: 7px 9px;
+  }
+}
+@media (max-width: 760px), (max-height: 500px) {
+  /* one scrollable row of tools instead of several wrapped ones */
+  .toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 8px 12px;
+  }
+  .toolbar::-webkit-scrollbar {
+    display: none;
+  }
+  .now.small {
+    margin-left: 0;
+  }
+  .toolbar .lbl {
+    display: none;
+  }
+  .melody-name {
+    width: 11ch;
+  }
+  .clock,
+  .now.small {
+    order: 10;
+  }
+}
+@media (max-width: 600px) {
+  .hint.inline {
+    display: none;
+  }
+}
+@media (max-height: 500px) {
+  header {
+    padding: 6px 12px;
+  }
+  .bar {
+    padding-bottom: 8px;
+  }
+  .now {
+    font-size: 22px;
+  }
+  .wrap {
+    padding-bottom: 10px;
+  }
+  .hint {
+    display: none;
+  }
+  .studio-keys {
+    padding-top: 4px;
+    padding-bottom: 6px;
+  }
+  .kb-bar {
+    margin-bottom: 4px;
+  }
+  .studio-keys .wrap {
+    height: clamp(70px, 24vh, 120px);
+  }
+  .studio-keys .octave button {
+    padding: 4px 0;
+  }
+}

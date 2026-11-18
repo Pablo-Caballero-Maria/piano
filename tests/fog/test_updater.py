@@ -11,6 +11,12 @@ def sh(*args, cwd):
     return subprocess.run(args, cwd=cwd, check=True, capture_output=True, text=True).stdout.strip()
 
 
+@pytest.fixture(autouse=True)
+def cache(tmp_path, monkeypatch):
+    """New versions are tested in the user's cache: a throwaway one here."""
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+
+
 @pytest.fixture
 def repos(tmp_path):
     """origin (bare), a "teacher PC" clone, and a "developer" clone that pushes."""
@@ -71,6 +77,19 @@ async def test_a_tested_new_version_is_installed(repos):
     assert sh("git", "rev-parse", "HEAD", cwd=pc) == new and u.restarted == [1]
 
 
+async def test_the_website_built_while_testing_replaces_the_old_one(repos):
+    dev, pc = repos
+    (pc / "web" / "out").mkdir(parents=True)
+    (pc / "web" / "out" / "index.html").write_text("old site")
+    u = updater(pc)
+    # What `npm run build --prefix web` does, in the worktree where the new version is tested
+    u.test_commands = [["sh", "-c", "mkdir -p web/out && echo new site > web/out/index.html"]]
+    push(dev, "README.md", "new\n")
+    assert await u.check() == "updated"
+    assert (pc / "web" / "out" / "index.html").read_text() == "new site\n"
+    assert not (pc / "web" / "out.new").exists() and not (pc / "web" / "out.old").exists()
+
+
 async def test_a_version_that_fails_its_tests_is_not(repos):
     dev, pc = repos
     old = sh("git", "rev-parse", "HEAD", cwd=pc)
@@ -78,6 +97,7 @@ async def test_a_version_that_fails_its_tests_is_not(repos):
     push(dev, "README.md", "broken\n")
     assert await u.check() == "failed"
     assert sh("git", "rev-parse", "HEAD", cwd=pc) == old and "failed its tests" in u.last["result"]
+    assert not (pc / "web" / "out.new").exists()  # nothing staged
     assert await u.check() == "skipped"  # not tested again until there's a newer one
 
 
@@ -114,7 +134,7 @@ def test_board_paths_match_the_board():
         "esp32/ca.pem",
         "esp32/x/y.py",
         "tests/board/t.py",
-        "web/public/a.js",
+        "web/src/app/page.tsx",
         "README.md",
     ):
         assert board_path(path) == board_updater.board_path(path)

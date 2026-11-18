@@ -9,8 +9,10 @@ Routes (besides the shared REST API of :mod:`pianocore.api`, whose data lives on
 ``WS   /ws``                       the live class (:mod:`fog.classroom`)
 ``GET  /board/<sha>/manifest.json``  the board's files in that commit (git hashes, sizes)
 ``GET  /board/<sha>/<path>``       one of them (the board downloads its updates here)
-``/``                              the website (nginx serves it directly in production)
+``/``                              the website: web/'s static build (:mod:`fog.website`)
 =================================  ==========================================================
+
+nginx only adds HTTPS in front of it (the repository is in a home folder nginx can't read).
 
 :func:`create_app` wires the parts together; background tasks (MQTT, internet checks, sync,
 updates, DuckDNS, Ably) start with the app.
@@ -27,8 +29,7 @@ from dataclasses import dataclass, field
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse, Response
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from pianocore.api import install_error_handlers, make_router
 from pianocore.auth import Session, read_token
@@ -45,6 +46,7 @@ from .internet import DuckDNS, Internet
 from .settings import Settings
 from .sync_service import SyncService
 from .updater import Git, Updater, board_path
+from .website import NOT_BUILT_PAGE, Site, built_dir, is_built
 
 log = logging.getLogger(__name__)
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -233,7 +235,13 @@ def create_app(settings: Settings | None = None, fog: Fog | None = None, backgro
             raise HTTPException(404)
         return Response(await fog.updater.git.show(sha, path), media_type="application/octet-stream")
 
-    web = settings.repo_dir / "web" / "public"
-    if web.is_dir():  # nginx serves these itself; this is for running without it
-        app.mount("/", StaticFiles(directory=web, html=True), name="web")
+    if is_built(settings.repo_dir):
+        app.mount("/", Site(built_dir(settings.repo_dir)), name="web")
+    else:
+        log.warning("The website isn't built (%s): serving a page that says so", built_dir(settings.repo_dir))
+
+        @app.get("/", response_class=HTMLResponse)
+        async def not_built() -> str:
+            return NOT_BUILT_PAGE
+
     return app

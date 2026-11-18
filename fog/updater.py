@@ -3,10 +3,11 @@
 Every hour while the PC is online (and on demand from the teacher's panel):
 
 1. ``git fetch``; if ``origin/main`` moved on (and this checkout has no local changes),
-2. the new commit is checked out in a separate git worktree and its whole test suite runs there
-   (pytest, and the browser code's tests with Node); if anything fails, nothing changes;
-3. the checkout fast-forwards, dependencies are synced, and the service restarts with the new
-   code (systemd restarts it). nginx serves the new frontend right away;
+2. the new commit is checked out in a separate git worktree and its whole test suite runs there:
+   pytest, then the website's (``npm ci``, its tests, and ``npm run build``, see
+   :mod:`fog.website`); if anything fails, nothing changes;
+3. the checkout fast-forwards, dependencies are synced, the website built in step 2 replaces the
+   old one, and the service restarts with the new code (systemd restarts it);
 4. if the board's firmware differs from the new commit, the board is told to update
    (``piano/<id>/ota``); it downloads its files from ``/board/<sha>/…`` (served here from git),
    checks each file's git hash, runs its own tests and installs them (esp32/ota.py).
@@ -25,11 +26,21 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from . import website
+
 log = logging.getLogger(__name__)
 BOARD_DIRS = ("esp32", "tests/board")
-TEST_COMMANDS: list[list[str]] = [["uv", "run", "--frozen", "pytest", "-q", "-p", "no:cacheprovider"]]
-if shutil.which("node"):
-    TEST_COMMANDS.append(["node", "--test", "tests/web/"])
+TEST_COMMANDS: list[list[str]] = [
+    ["uv", "run", "--frozen", "pytest", "-q", "-p", "no:cacheprovider"],
+    *website.BUILD_COMMANDS,
+]
+
+
+def work_dir() -> Path:
+    """Where new versions are tested: the user's cache (on disk: the website's packages are big)."""
+    base = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "piano"
+    base.mkdir(parents=True, exist_ok=True)
+    return base
 
 
 def board_path(repo_path: str) -> str | None:
@@ -131,7 +142,8 @@ class Updater:
         self.last = {"at": int(time.time()), "ok": ok, "result": result}
 
     async def _tests_pass(self, sha: str) -> tuple[bool, str]:
-        folder = Path(tempfile.mkdtemp(prefix="piano-update-"))
+        """Run the test commands on commit sha; if they pass, its website (built by them) is staged."""
+        folder = Path(tempfile.mkdtemp(prefix="update-", dir=work_dir()))
         try:
             await self.git.run("worktree", "add", "--detach", str(folder / "src"), sha)
             env = {
@@ -139,6 +151,7 @@ class Updater:
                 for k, v in os.environ.items()
                 if not k.startswith(("PIANO_", "MONGODB", "ABLY", "DUCKDNS"))
             }
+            env.update(website.BUILD_ENV)
             for cmd in self.test_commands:
                 proc = await asyncio.create_subprocess_exec(
                     *cmd,
@@ -150,7 +163,8 @@ class Updater:
                 out, _ = await proc.communicate()
                 if proc.returncode:
                     tail = out.decode(errors="replace").strip().splitlines()[-3:]
-                    return False, f"{' '.join(cmd[:3])} failed: {' / '.join(tail)}"
+                    return False, f"{website.describe(cmd)[:40]} failed: {' / '.join(tail)}"
+            website.stage(folder / "src", self.git.dir)
             return True, "tests passed"
         finally:
             await self.git.run("worktree", "remove", "--force", str(folder / "src"), check=False)
@@ -182,6 +196,7 @@ class Updater:
             await self.git.run("merge", "--ff-only", "--quiet", new)
             sync = await asyncio.create_subprocess_exec("uv", "sync", "--frozen", cwd=self.git.dir)
             await sync.wait()
+            website.install(self.git.dir)
             self._note(True, f"Updated to version {new[:7]} ({summary}); restarting")
             self.restart()
             return "updated"

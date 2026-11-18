@@ -59,7 +59,7 @@ def test_board_path():
     assert bp("tests/board/testrunner.py") == "tests/testrunner.py"
     for other in (
         "README.md",
-        "web/public/index.html",
+        "web/src/app/page.tsx",
         "esp32/sub/x.py",
         "fog/app.py",
         "tests/core/test_x.py",

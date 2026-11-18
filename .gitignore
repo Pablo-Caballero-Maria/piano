@@ -20,3 +20,13 @@ HANDOFF.md
 .demo-board/
 .fake-board/
 .demo-board-cloud/
+# The website's build (web/): Next.js output, TypeScript cache, end-to-end test results
+web/.next/
+web/out/
+web/out.new/
+web/out.old/
+web/next-env.d.ts
+web/AGENTS.md
+web/tsconfig.tsbuildinfo
+web/playwright-report/
+web/test-results/

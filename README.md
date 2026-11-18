@@ -37,13 +37,15 @@ fog/         the teacher's PC: app.py (FastAPI), classroom.py (live class), buzz
 esp32/       the board's firmware: main.py (boot, rollback, update mode), app.py, mqtt.py (own
              MQTT client), kv.py (encrypted-blob store), tone.py, config.py, updater.py, ota.py
 api/         the Vercel function (index.py): the API on Atlas, Ably tokens, live lessons
-web/public/  the website (plain ES modules, no build): js/link.js (class link: WebSocket or
-             Ably), js/class.js (lessons, buzzer queue, students), js/studio.js, js/api.js…
+web/         the website: Next.js + TypeScript, built as a static export (web/out) that Vercel and
+             the PC serve; src/services/link (class link: WebSocket or Ably), src/state (the
+             class), src/studio (piano roll engine), src/components (React). See web/README.md
 install.sh   sets up a teacher's PC and its board from a fresh clone (asks what it needs)
 deploy/      nginx, Mosquitto, certbot (DuckDNS DNS challenge) and systemd setup: `sudo deploy/setup.sh`
 tools/       board.py (install the board over USB), configure.py (.env questions), fake_board.py
              (pretend board), sim/ (lets the board's MicroPython code run on CPython)
-tests/       core/, fog/, board/ (also run ON the board), web/ (node), integration (real broker)
+tests/       core/, fog/, board/ (also run ON the board), integration (real broker); the website's
+             tests are in web/tests (Vitest) and web/e2e (Playwright)
 buzzer.py    the very first demo (scales and tunes, no network), run with mpremote
 ```
 
@@ -76,7 +78,7 @@ The piano keyboard: tap/click, slide for a glissando, or computer keys `A W S E 
 O L P` (`Z`/`X` octave). The Studio: draw/erase notes, snap, BPM, zoom, undo/redo, loop,
 metronome, record from the piano; overlapping notes play their **resultant frequency** (the mean:
 sin a + sin b = 2·cos((a−b)/2)·sin((a+b)/2)), because the buzzer has one voice. Details are in the
-code comments of `web/public/js/studio.js`.
+code comments of `web/src/studio/engine.ts` and `web/src/lib/notes.ts`.
 
 ## Setting up the teacher's PC
 
@@ -90,7 +92,9 @@ git clone https://github.com/Pablo-Caballero-Maria/piano.git && cd piano
 ```
 
 `install.sh` installs what's missing (nginx, mosquitto, certbot, curl, uv — asking first), the
-app's Python, asks the questions that fill in `.env` (`tools/configure.py`), runs
+app's Python, builds the website (with the Node.js that uv installs: the `web` group of
+`pyproject.toml`, so every PC builds it with the same version), asks the questions that fill in
+`.env` (`tools/configure.py`), runs
 `sudo deploy/setup.sh`, offers to make the PC join the classroom WiFi at boot and to keep running
 with the lid closed while plugged in, installs the board if it's plugged in, and checks it all
 (`uv run python -m fog check`). Everything after that is automatic (next section).
@@ -136,7 +140,8 @@ PC home and back:
 - the board starts when powered, joins the classroom WiFi and retries forever until it reaches the
   PC (its clock comes from the PC when the classroom has no internet);
 - on every network the PC points the DuckDNS name at its new address within 30 s;
-- with internet (at home too) the PC updates itself from GitHub after running the tests, renews
+- with internet (at home too) the PC updates itself from GitHub after running the tests (pytest,
+  then the website's: `npm ci`, its tests and its build, which then replaces the served one), renews
   the certificate, and relays lessons; the board is updated at the next class; Atlas syncs when
   the PC has internet **and** the board at the same time;
 - at home the PC has no board ("board offline"): use the Vercel site.
@@ -151,8 +156,11 @@ reserve the PC's address in the router (DHCP), add a local DNS entry for the nam
 ### Trying it without the hardware
 
 - `uv run python -m fog demo` — the whole PC app with a **simulated board** (the board's real
-  storage code, in-process), on http://localhost:8080. No broker, nginx or .env needed. The
-  buzzer's notes are logged. Open it in two browser profiles to be teacher and student.
+  storage code, in-process), on http://localhost:8080. No broker, nginx or .env needed (the
+  website must be built once: `./install.sh` does it, or `uv run --group web npm ci --prefix web`
+  and `uv run --group web npm run build --prefix web`). The buzzer's notes are logged. Open it in
+  two browser profiles to be teacher and student. `--port N` and `--fresh` (an empty board,
+  deleted afterwards) are what the website's end-to-end tests use.
 - `uv run python -m fog demo --cloud` — the same with the real system of `.env`: syncs the
   simulated board (`.demo-board-cloud/`) with Atlas and relays lessons to Ably, so a student on
   the Vercel site can follow a lesson given on this PC.
@@ -189,7 +197,8 @@ small (no Bluetooth, no web server: the PC does that) and stores only encrypted 
 
 ## Online: Vercel and Ably
 
-Vercel serves `web/public` and the function `api/index.py` (FastAPI): the same REST API on Atlas,
+Vercel builds the website (`npm ci` and `npm run build` in `web/`, see `vercel.json`) and serves
+its static export `web/out`, plus the function `api/index.py` (FastAPI): the same REST API on Atlas,
 `/api/ably/token` (signed Ably token requests: teachers may publish on their own lesson channel
 `class:<name>`, everyone may follow lessons and enter their presence) and `/api/live`. It deploys
 from GitHub on every push to `main`.
@@ -209,9 +218,14 @@ applies), environment variables `PIANO_DATA_KEY` (the same as the PCs'), `MONGOD
 
 ```sh
 uv run pytest -q                     # Python: core, PC, board code (on CPython), integration
-node --test tests/web/               # browser code
 uv run ruff format . && uv run ruff check .
 PIANO_TEST_MONGODB_URI=… uv run pytest tests/core/test_mongo.py   # against a real MongoDB (throwaway db)
+
+cd web                               # the website (details in web/README.md); `uv run --group web`
+npm ci                               #   before npm if this PC has no Node.js ≥ 22.12
+npm run dev                          # hot reload on :3000, with `uv run python -m fog demo` running
+npm run check                        # TypeScript, ESLint, Prettier, Vitest (unit + components)
+npm run build && npm run test:e2e    # the static site, then Playwright in Chrome against fog demo
 ```
 
 - `tests/board/` is MicroPython-compatible: pytest runs it here, `tests/board/testrunner.py` runs it
@@ -237,7 +251,7 @@ PIANO_TEST_MONGODB_URI=… uv run pytest tests/core/test_mongo.py   # against a 
 ## Protocols (details in each module's docstring)
 
 - REST API: `pianocore/api.py` (+ `fog/app.py`, `api/index.py`).
-- Live class WebSocket messages: `fog/classroom.py`; browser side `web/public/js/link.js`.
+- Live class WebSocket messages: `fog/classroom.py`; browser side `web/src/services/link/`.
 - MQTT topics PC ⇄ board: `fog/board.py`, `esp32/app.py`; storage requests (binary): `esp32/kv.py`.
 - Stored records and keys: `pianocore/kv_repo.py`, `pianocore/mongo_repo.py`; sync: `pianocore/sync.py`.
 - Ably channels and messages: `pianocore/ably.py`. Board updates: `fog/updater.py`, `esp32/ota.py`.
@@ -276,7 +290,8 @@ user said the Claude in Chrome extension may be used to set up Ably and Vercel's
 ### Status (2026-11-17)
 | Part | Status |
 |---|---|
-| Shared core, PC app, board firmware, Vercel function, website | ✅ Written and tested: 91 Python + 12 JS tests; MongoRepo checked against the real Atlas cluster |
+| Shared core, PC app, board firmware, Vercel function | ✅ Written and tested: 97 Python tests; MongoRepo checked against the real Atlas cluster |
+| Website (Next.js + TypeScript, since 2026-11-18) | ✅ 87 Vitest tests (logic, services, Studio engine, components) and 4 Playwright tests in Chrome against `fog demo` (piano lesson, buzzer queue, studio save/reload, studio lesson); looks the same as the old page (screenshots compared, desktop and phone) |
 | Online, end to end (Vercel + Atlas + Ably) | ✅ Two browsers on the Vercel site: sign-up/login, live lesson listed and followed, notes in real time, the teacher sees the student (presence), studio lesson in step, public melody seen by the other user |
 | Classroom ⇄ cloud, end to end | ✅ `fog demo --cloud` (simulated board, real Atlas and Ably): an account and melody made in class reach Atlas and log in on Vercel; a classroom lesson (buzzer playing) followed from the Vercel site; the classroom teacher sees the student at home |
 | `install.sh` | 🟡 Run end to end in a copy of the repository with `sudo` stubbed (questions, .env, the calls it makes); nginx template checked with `nginx -t`. Only tested on Arch |
@@ -337,9 +352,21 @@ user said the Claude in Chrome extension may be used to set up Ably and Vercel's
    public melody "Prueba pública" and a private "Melodía del aula" (their password isn't
    written here).
 
+7. **2026-11-18**: at the user's request, the website (one `index.html` plus plain JS modules)
+   became a Next.js project in TypeScript (`web/`, see web/README.md): React components for the
+   page, plain TypeScript classes for the logic (class link, class state, sound, the Studio's
+   engine) read through small stores, and a static export that both Vercel and the teacher's PC
+   serve (the PC must work offline, and nothing on the page needs a server). The PC builds it with
+   Node.js from uv (`nodejs-wheel`, the `web` dependency group: not a default group, so Vercel's
+   Python function doesn't carry it) at install, and every update builds and tests it before
+   swapping it in (`fog/website.py`). Found while testing: reloading the Studio right after an edit
+   lost that edit (the draft was stored 400 ms later); it's now stored when the page is left.
+
 ### Not verified yet
 - `./install.sh` / `deploy/setup.sh` with real sudo (certificate via DuckDNS, nginx and Mosquitto
   with TLS, the service, WiFi at boot, lid); on Debian/Ubuntu or Fedora at all.
 - The new firmware on the real board (WiFi, clock, MQTT/TLS with Let's Encrypt, memory headroom,
   an update over WiFi with its on-board tests).
 - Phones on the classroom router (DNS rebinding protection on the router?).
+- A real update of a teacher PC to a new version (its website build in the update worktree was run
+  by hand, see History 7).

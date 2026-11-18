@@ -21,6 +21,11 @@ dev = [
     "pytest-asyncio>=0.24",
     "ruff>=0.8",
 ]
+# Node.js for the website (web/), pinned here so every teacher PC builds it the same way:
+# `uv run --group web npm …` (fog/website.py). Not a default group: Vercel's Python function skips it.
+web = [
+    "nodejs-wheel>=24.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

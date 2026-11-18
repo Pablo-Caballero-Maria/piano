@@ -1,0 +1,143 @@
+/* The on-screen piano keyboard (both modes) and the hints around it. */
+/* ---- Piano keyboard (both modes) ---- */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px 12px;
+  flex-wrap: wrap;
+}
+.now {
+  font-variant-numeric: tabular-nums;
+  font-size: 28px;
+  font-weight: 700;
+  min-width: 7ch;
+  margin-right: auto;
+  white-space: nowrap;
+}
+.now small {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 500;
+  margin-left: 6px;
+}
+.octave {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.octave span {
+  font-size: 14px;
+  color: var(--muted);
+  min-width: 8ch;
+  text-align: center;
+}
+.octave button {
+  width: 40px;
+  padding: 8px 0;
+}
+
+.wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 16px 16px;
+}
+.keyboard {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  max-height: 420px;
+  touch-action: none;
+}
+.key {
+  position: relative;
+}
+.white {
+  flex: 1;
+  margin: 0 1px;
+  border-radius: 0 0 8px 8px;
+  background: linear-gradient(#fdfcf9, #ecebe6);
+  box-shadow: inset 0 -6px 0 #d3d1ca;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  padding-bottom: 12px;
+  color: #8a8a8a;
+  font-size: 12px;
+}
+.white.c b {
+  color: #333;
+}
+.white.down {
+  background: linear-gradient(#e3f3ea, #c9e8d7);
+  box-shadow: inset 0 -2px 0 #a9d3bc;
+}
+.white.sounding {
+  background: linear-gradient(#bfe8d2, #8fd4b0);
+}
+.white.teacher {
+  box-shadow: inset 0 -10px 0 var(--teacher);
+}
+.black {
+  position: absolute;
+  top: 0;
+  height: 60%;
+  transform: translateX(-50%);
+  z-index: 2;
+  border-radius: 0 0 6px 6px;
+  background: linear-gradient(#2c2d33, #0d0e10);
+  box-shadow:
+    inset 0 -5px 0 #000,
+    0 3px 4px rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding-bottom: 8px;
+  color: #8f949c;
+  font-size: 11px;
+}
+.black.down {
+  background: linear-gradient(#2f6b50, #1c4835);
+  box-shadow: inset 0 -2px 0 #000;
+}
+.black.sounding {
+  background: linear-gradient(#3fa673, #2a7b54);
+}
+.black.teacher {
+  box-shadow: inset 0 -8px 0 var(--teacher);
+}
+.kbd {
+  display: none;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  opacity: 0.8;
+}
+@media (hover: hover) and (pointer: fine) {
+  .kbd {
+    display: block;
+  }
+}
+
+.hint {
+  padding: 0 16px 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.hint.inline {
+  padding: 0;
+}
+@media (orientation: landscape), (pointer: fine) {
+  .hint.rotate {
+    display: none;
+  }
+}
+@media not ((hover: hover) and (pointer: fine)) {
+  .hint.keys {
+    display: none;
+  }
+}
