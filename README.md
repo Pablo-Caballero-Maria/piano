@@ -361,6 +361,12 @@ user said the Claude in Chrome extension may be used to set up Ably and Vercel's
    Python function doesn't carry it) at install, and every update builds and tests it before
    swapping it in (`fog/website.py`). Found while testing: reloading the Studio right after an edit
    lost that edit (the draft was stored 400 ms later); it's now stored when the page is left.
+   Verified: the updater's real commands on a fresh worktree of the commit (pytest, `npm ci`,
+   Vitest, `next build`: ~50 s with npm's cache warm), Vercel's build and production site (page,
+   API on Atlas, immutable cache for `/_next/static`), and an online lesson over the real Ably
+   (Vercel's `api/index.py` run locally with an in-memory store, two Chrome contexts: lesson
+   listed and joined, notes both ways, presence). Seen then: `/api/live` answers 500 when Ably
+   rate-limits channel listing (429) after many Refresh clicks; the page shrugs it off.
 
 ### Not verified yet
 - `./install.sh` / `deploy/setup.sh` with real sudo (certificate via DuckDNS, nginx and Mosquitto
@@ -368,5 +374,5 @@ user said the Claude in Chrome extension may be used to set up Ably and Vercel's
 - The new firmware on the real board (WiFi, clock, MQTT/TLS with Let's Encrypt, memory headroom,
   an update over WiFi with its on-board tests).
 - Phones on the classroom router (DNS rebinding protection on the router?).
-- A real update of a teacher PC to a new version (its website build in the update worktree was run
-  by hand, see History 7).
+- A real update of a teacher PC to a new version through the service (its commands were run by
+  hand on a fresh worktree, see History 7).
