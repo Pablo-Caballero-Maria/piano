@@ -6,6 +6,8 @@ sound on a buzzer driven by an ESP32 in the classroom while every student sees t
 own phone. Everyone can also practise alone (piano and studio), save melodies privately or share
 them publicly, and follow lessons from home over the internet.
 
+The project report (in Spanish) is [docs/memoria/memoria.pdf](docs/memoria/memoria.pdf).
+
 ```
  phones (teacher, students)  ── HTTPS + WebSocket ──►  teacher's PC  ── MQTT/TLS ──►  ESP32 + buzzer
    on the classroom router                              (fog node)                   (classroom router)
@@ -47,7 +49,8 @@ tools/       board.py (install the board over USB), configure.py (.env questions
 tests/       core/, fog/, board/ (also run ON the board), integration (real broker); the website's
              tests are in web/tests (Vitest) and web/e2e (Playwright)
 buzzer.py    the very first demo (scales and tunes, no network), run with mpremote
-docs/memoria/ the project report's diagrams (`uv run python docs/memoria/diagramas.py` redraws them)
+docs/memoria/ the project report, memoria.pdf (in Spanish), and its diagrams
+             (`uv run python docs/memoria/diagramas.py` redraws them)
 ```
 
 ## A class
