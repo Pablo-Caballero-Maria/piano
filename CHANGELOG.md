@@ -6,6 +6,16 @@ All notable changes to ESP32 Piano are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-21
+
+### Added
+
+- **Vercel Web Analytics** (page views, cookieless) and **Speed Insights** (Core Web Vitals of real
+  visits) on the website Vercel serves. Only Vercel's build includes them (`VERCEL=1`): the teacher's PC
+  builds the classroom's copy without them.
+- An end-to-end test (`web/e2e/privacy.spec.ts`) that checks that the classroom page only talks to the
+  teacher's PC: no request to Vercel or anywhere else. 197 automated tests in all.
+
 ## [1.0.0] - 2026-11-21
 
 ### Added
@@ -75,7 +85,8 @@ All notable changes to ESP32 Piano are documented here. The format follows
 
 - First version: a web piano that plays its notes on an ESP32 buzzer over Bluetooth.
 
-[Unreleased]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Pablo-Caballero-Maria/piano/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/Pablo-Caballero-Maria/piano/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Pablo-Caballero-Maria/piano/compare/v0.2.0...v0.3.0

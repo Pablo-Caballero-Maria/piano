@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { IconSprite } from "@/components/ui/Icon";
+import { VercelTelemetry } from "@/components/ui/VercelTelemetry";
 import "@/styles/base.css";
 import "@/styles/header.css";
 import "@/styles/keyboard.css";
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <IconSprite />
         {children}
+        <VercelTelemetry />
       </body>
     </html>
   );

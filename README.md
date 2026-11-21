@@ -41,7 +41,7 @@ and follow lessons from home over the internet.
 
 | 🧪 Automated tests | 📡 Internet needed in class | 🔐 Encryption at rest | 🔄 Updates |
 | :---: | :---: | :---: | :---: |
-| 196 (18 run on the board) | none | AES-256-GCM | from GitHub, after the tests pass |
+| 197 (18 run on the board) | none | AES-256-GCM | from GitHub, after the tests pass |
 
 > [!NOTE]
 > The project report (in Spanish) is [docs/memoria/memoria.pdf](docs/memoria/memoria.pdf). It works end
@@ -305,6 +305,11 @@ its static export `web/out`, plus the function `api/index.py` (FastAPI): the sam
 `class:<name>`, everyone may follow lessons and enter their presence) and `/api/live`. It deploys
 from GitHub on every push to `main`.
 
+Vercel's build (and only it: `VERCEL=1`) also includes **Vercel Web Analytics** (page views, cookieless)
+and **Speed Insights** (Core Web Vitals of real visits), see `web/src/components/ui/VercelTelemetry.tsx`. The
+teacher's PC builds the same site without them, so nothing from the classroom is sent anywhere; an end-to-end
+test checks it.
+
 Ably: the app **piano-esp32** has a key **piano-server** (publish, subscribe, presence, channel
 metadata) for the servers; it's in the PCs' `.env` (ABLY_API_KEY). The app requires *identified*
 clients on lesson channels, so the PC's REST calls identify as the lesson's teacher
@@ -359,7 +364,7 @@ flowchart LR
 | pytest | 102 | the shared core, the PC app end to end (REST and WebSocket with the board's real storage code), updates against throwaway git repositories, an MQTT integration test through a real broker, the Atlas repository against a real MongoDB | `tests/` |
 | …on the board | 18 of the 102 | written for MicroPython: pytest runs them on the PC and the board runs them on itself before installing an update | `tests/board/` |
 | Vitest | 90 | website logic, services, the Studio engine and components | `web/tests/` |
-| Playwright | 4 | several phones in one class, in Chrome, against the PC app with a simulated board | `web/e2e/` |
+| Playwright | 5 | several phones in one class, in Chrome, against the PC app with a simulated board; and that the classroom page talks to nobody but the teacher's PC | `web/e2e/` |
 
 > [!TIP]
 > The teacher's PCs don't trust CI: every hour they run the newest commit's own tests (pytest, then the
@@ -444,7 +449,7 @@ Use the metadata in [CITATION.cff](CITATION.cff) (GitHub's *Cite this repository
   author  = {Caballero María, Pablo},
   title   = {ESP32 Piano: piano lessons with an ESP32 buzzer, a fog node and live classes},
   year    = {2026},
-  version = {1.0.0},
+  version = {1.1.0},
   url     = {https://github.com/Pablo-Caballero-Maria/piano},
   license = {MIT}
 }
