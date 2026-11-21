@@ -327,6 +327,7 @@ applies), environment variables `PIANO_DATA_KEY` (the same as the PCs'), `MONGOD
 uv run pytest -q                     # Python: core, PC, board code (on CPython), integration
 uv run pytest --cov                  # the same, with coverage (pytest-cov; htmlcov/ with --cov-report=html)
 uv run ruff format . && uv run ruff check .
+uv run ty check                      # types (ty; Python 3.12, without esp32/ and tests/board/)
 PIANO_TEST_MONGODB_URI=… uv run pytest tests/core/test_mongo.py   # against a real MongoDB (throwaway db)
 
 cd web                               # the website (details in web/README.md); `uv run --group web`

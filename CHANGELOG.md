@@ -9,6 +9,9 @@ All notable changes to ESP32 Piano are documented here. The format follows
 ### Added
 
 - `prettier-plugin-tailwindcss` in `web/`: Prettier keeps the Tailwind classes in their recommended order.
+- [ty](https://docs.astral.sh/ty/) in the `dev` group: `uv run ty check` type-checks the Python code for
+  Python 3.12, leaving out the MicroPython firmware (`esp32/`, `tests/board/`). It resolves imports like
+  pytest does; not part of CI yet.
 
 ### Changed
 

@@ -21,6 +21,7 @@ dev = [
     "pytest-asyncio>=0.24",
     "pytest-cov>=7.1.0",
     "ruff>=0.8",
+    "ty>=0.0.107",
 ]
 # Node.js for the website (web/), pinned here so every teacher PC builds it the same way:
 # `uv run --group web npm …` (fog/website.py). Not a default group: Vercel's Python function skips it.
@@ -44,6 +45,16 @@ branch = true
 
 [tool.coverage.report]
 skip_covered = true
+
+[tool.ty.environment]
+python-version = "3.12"
+# Where the modules imported by name live, as in pytest's pythonpath (the board's firmware runs on
+# CPython through tools/sim)
+extra-paths = ["esp32", "tests/board", "tools/sim"]
+
+[tool.ty.src]
+# MicroPython code (the board and its tests): CPython's typeshed doesn't describe its modules
+exclude = ["esp32/", "tests/board/"]
 
 [tool.ruff]
 line-length = 110
