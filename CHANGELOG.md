@@ -17,6 +17,8 @@ All notable changes to ESP32 Piano are documented here. The format follows
   the keyframes, the piano roll's grid lines). It is compiled by `@tailwindcss/turbopack`, declared in
   `next.config.ts` as in the other websites. The page looks the same: compared screenshot by screenshot
   on a desktop, a phone and a phone in landscape.
+- The website's icons are `lucide-react` (1.75.0, the version the other websites use) instead of its own
+  SVG sprite; the play, stop, back-to-start and record icons stay filled.
 
 ## [1.1.1] - 2026-11-21
 

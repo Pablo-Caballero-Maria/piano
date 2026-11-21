@@ -7,8 +7,8 @@
  */
 import { useEffect, useState } from "react";
 import { Modal, ModalHeader } from "@/components/dialogs/Modal";
-import { BUTTON, DIALOG_ROW_START, MUTED_P } from "@/components/ui/classes";
-import { Icon } from "@/components/ui/Icon";
+import { X } from "lucide-react";
+import { BUTTON, DIALOG_ROW_START, ICON, MUTED_P } from "@/components/ui/classes";
 import { useStore } from "@/hooks/useStore";
 import { noteNames } from "@/lib/notes";
 import { api, classState } from "@/services";
@@ -151,7 +151,7 @@ function BuzzerSection({ cls, me, teacher }: { cls: ClassSnapshot; me: string | 
                 aria-label={`Remove ${name} from the queue`}
                 onClick={() => classState.queue("remove", { user: name })}
               >
-                <Icon name="x" />
+                <X className={ICON} />
               </button>
             ) : null}
           </li>

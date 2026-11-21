@@ -1,8 +1,26 @@
 "use client";
 
 /** The studio's toolbar: the melody (name, save, open, public), transport, tempo, snap and editing tools. */
-import { BUTTON } from "@/components/ui/classes";
-import { Icon } from "@/components/ui/Icon";
+import {
+  CircleSmall,
+  Eraser,
+  Folder,
+  Globe,
+  Lock,
+  Metronome,
+  Pencil,
+  Piano,
+  Play,
+  Redo2,
+  Repeat,
+  Save,
+  SkipBack,
+  Square,
+  Undo2,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
+import { BUTTON, ICON } from "@/components/ui/classes";
 import { NowPlaying } from "@/components/piano/NowPlaying";
 import { useStore } from "@/hooks/useStore";
 import { api } from "@/services";
@@ -63,7 +81,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
           New
         </button>
         <button type="button" title="My melodies and everyone's public ones" onClick={onOpenList}>
-          <Icon name="folder" />
+          <Folder className={ICON} />
           <span className={LABEL}> My melodies</span>
         </button>
         <button
@@ -75,7 +93,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
           disabled={!mine || following}
           onClick={() => studio.togglePublic()}
         >
-          <Icon name={s.isPublic ? "globe" : "lock"} />
+          {s.isPublic ? <Globe className={ICON} /> : <Lock className={ICON} />}
         </button>
         <button
           type="button"
@@ -84,7 +102,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
           disabled={saving || following}
           onClick={() => void library.save()}
         >
-          <Icon name="save" />
+          <Save className={ICON} />
           <span className={LABEL}> Save</span>
         </button>
       </div>
@@ -97,7 +115,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
           aria-label="Back to the start"
           onClick={() => studio.seek(0)}
         >
-          <Icon name="start" />
+          <SkipBack className={ICON} fill="currentColor" />
         </button>
         <button
           type="button"
@@ -107,7 +125,11 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
           aria-pressed={s.playing}
           onClick={() => studio.togglePlay()}
         >
-          <Icon name={s.playing ? "stop" : "play"} />
+          {s.playing ? (
+            <Square className={ICON} fill="currentColor" />
+          ) : (
+            <Play className={ICON} fill="currentColor" />
+          )}
         </button>
         <button
           type="button"
@@ -118,7 +140,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
           disabled={following}
           onClick={() => studio.toggleRecord()}
         >
-          <Icon name="rec" />
+          <CircleSmall className={ICON} fill="currentColor" />
         </button>
         <button
           type="button"
@@ -128,7 +150,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
           aria-pressed={s.looping}
           onClick={() => studio.toggleLoop()}
         >
-          <Icon name="loop" />
+          <Repeat className={ICON} />
         </button>
         <button
           type="button"
@@ -138,7 +160,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
           aria-pressed={s.metronome}
           onClick={() => studio.toggleMetronome()}
         >
-          <Icon name="metro" />
+          <Metronome className={ICON} />
         </button>
       </div>
 
@@ -169,7 +191,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
           aria-pressed={s.tool === "draw"}
           onClick={() => studio.setTool("draw")}
         >
-          <Icon name="pencil" />
+          <Pencil className={ICON} />
         </button>
         <button
           type="button"
@@ -179,7 +201,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
           aria-pressed={s.tool === "erase"}
           onClick={() => studio.setTool("erase")}
         >
-          <Icon name="eraser" />
+          <Eraser className={ICON} />
         </button>
         <button
           type="button"
@@ -189,7 +211,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
           disabled={!s.canUndo}
           onClick={() => studio.undo()}
         >
-          <Icon name="undo" />
+          <Undo2 className={ICON} />
         </button>
         <button
           type="button"
@@ -199,7 +221,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
           disabled={!s.canRedo}
           onClick={() => studio.redo()}
         >
-          <Icon name="redo" />
+          <Redo2 className={ICON} />
         </button>
         <button
           type="button"
@@ -208,7 +230,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
           aria-label="Zoom out"
           onClick={() => studio.zoom(1 / 1.25)}
         >
-          <Icon name="zout" />
+          <ZoomOut className={ICON} />
         </button>
         <button
           type="button"
@@ -217,7 +239,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
           aria-label="Zoom in"
           onClick={() => studio.zoom(1.25)}
         >
-          <Icon name="zin" />
+          <ZoomIn className={ICON} />
         </button>
         <button
           type="button"
@@ -227,7 +249,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
           aria-pressed={!s.keyboardHidden}
           onClick={() => studio.toggleKeyboard()}
         >
-          <Icon name="piano" />
+          <Piano className={ICON} />
         </button>
       </div>
       <NowPlaying

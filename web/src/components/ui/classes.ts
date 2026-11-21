@@ -3,9 +3,11 @@
  * globals.css (@layer base); these are the variants.
  */
 
-/** An inline icon, the size of the text around it (a button's parent can make it smaller). */
-export const ICON =
-  "inline size-[18px] flex-none fill-none stroke-current stroke-2 align-[-4px] [stroke-linecap:round] [stroke-linejoin:round]";
+/**
+ * A lucide-react icon inline with text (inline SVG: emoji fonts are missing on some PCs and look
+ * different on each phone). A button's parent can make its icons smaller.
+ */
+export const ICON = "inline size-[18px] flex-none align-[-4px]";
 
 export const BUTTON = {
   /** The main action. Like every button, its border lightens on hover. */

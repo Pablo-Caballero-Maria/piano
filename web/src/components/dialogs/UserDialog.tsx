@@ -1,8 +1,8 @@
 "use client";
 
 /** The logged-in user: who they are, and Log out. */
-import { DIALOG_ROW, MUTED_P } from "@/components/ui/classes";
-import { Icon } from "@/components/ui/Icon";
+import { User as UserIcon } from "lucide-react";
+import { DIALOG_ROW, ICON, MUTED_P } from "@/components/ui/classes";
 import { api, type User } from "@/services/api";
 import { toast } from "@/state/toast";
 import { Modal } from "./Modal";
@@ -29,7 +29,7 @@ export function UserDialog({
   return (
     <Modal open={open && !!user} onClose={onClose} label="Account">
       <h2 className="mb-3 text-[17px] font-bold">
-        <Icon name="user" /> <span>{user?.username}</span>
+        <UserIcon className={ICON} /> <span>{user?.username}</span>
       </h2>
       <p className={MUTED_P}>{user ? ROLE_TEXT[user.role] : ""}</p>
       <div className={DIALOG_ROW}>

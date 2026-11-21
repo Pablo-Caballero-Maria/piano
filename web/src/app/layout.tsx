@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { IconSprite } from "@/components/ui/Icon";
 import { VercelTelemetry } from "@/components/ui/VercelTelemetry";
 import "./globals.css";
 
@@ -22,7 +21,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className="h-full bg-bg text-fg">
       <body className="h-full overflow-hidden bg-bg text-fg select-none [-webkit-touch-callout:none]">
-        <IconSprite />
         {children}
         <VercelTelemetry />
       </body>

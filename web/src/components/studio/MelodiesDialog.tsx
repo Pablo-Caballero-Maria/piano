@@ -3,8 +3,8 @@
 /** "Melodies": mine and everyone's public ones, to open, play, copy or delete. */
 import { useEffect, useRef, useState } from "react";
 import { Modal, ModalHeader } from "@/components/dialogs/Modal";
-import { BUTTON, MUTED, MUTED_P, SEGMENTED } from "@/components/ui/classes";
-import { Icon } from "@/components/ui/Icon";
+import { Copy, Globe, Play, Trash } from "lucide-react";
+import { BUTTON, ICON, MUTED, MUTED_P, SEGMENTED } from "@/components/ui/classes";
 import { useStore } from "@/hooks/useStore";
 import { formatTime, plural, timeAgo } from "@/lib/format";
 import type { MelodySummary } from "@/lib/melody";
@@ -86,7 +86,7 @@ export function MelodiesDialog({ open, onClose, library, currentId }: MelodiesDi
           aria-pressed={scope === "public"}
           onClick={() => chooseScope("public")}
         >
-          <Icon name="globe" /> Public
+          <Globe className={ICON} /> Public
         </button>
       </div>
       <ul className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-auto">
@@ -145,7 +145,7 @@ function MelodyRow({ melody: m, mine, current, onPlay, onOpen, onCopy, onDelete 
         aria-label={`Play ${m.name}`}
         onClick={onPlay}
       >
-        <Icon name="play" />
+        <Play className={ICON} fill="currentColor" />
       </button>
       <button
         type="button"
@@ -162,7 +162,7 @@ function MelodyRow({ melody: m, mine, current, onPlay, onOpen, onCopy, onDelete 
         aria-label={`Copy ${m.name}`}
         onClick={onCopy}
       >
-        <Icon name="copy" />
+        <Copy className={ICON} />
       </button>
       {mine ? <DeleteButton name={m.name} onDelete={onDelete} /> : null}
     </li>
@@ -192,7 +192,7 @@ function DeleteButton({ name, onDelete }: { name: string; onDelete: () => void }
       aria-label={`Delete ${name}`}
       onClick={click}
     >
-      {armed ? "Delete?" : <Icon name="trash" />}
+      {armed ? "Delete?" : <Trash className={ICON} />}
     </button>
   );
 }

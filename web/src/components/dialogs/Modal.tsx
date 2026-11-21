@@ -4,9 +4,9 @@
  * A modal dialog: the browser's own <dialog> (backdrop, Escape, focus), opened and closed by the
  * `open` prop. onClose runs whenever it closes (Escape, a button, or `open` turning false).
  */
+import { X } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
-import { BUTTON } from "@/components/ui/classes";
-import { Icon } from "@/components/ui/Icon";
+import { BUTTON, ICON } from "@/components/ui/classes";
 
 const DIALOG =
   "m-auto max-h-[calc(100dvh_-_32px)] rounded-[14px] border border-line bg-panel p-[18px] text-fg backdrop:bg-black/55";
@@ -49,7 +49,7 @@ export function ModalHeader({ title, onClose }: { title: ReactNode; onClose: () 
     <div className="mb-2 flex items-center justify-between">
       <h2 className="text-[17px] font-bold">{title}</h2>
       <button type="button" className={BUTTON.icon} aria-label="Close" onClick={onClose}>
-        <Icon name="x" />
+        <X className={ICON} />
       </button>
     </div>
   );

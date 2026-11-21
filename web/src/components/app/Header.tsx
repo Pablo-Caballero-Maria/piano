@@ -1,15 +1,15 @@
 "use client";
 
 /** The top bar: the mode tabs, how the class link is doing, device sound, Class and the account. */
-import { BUTTON } from "@/components/ui/classes";
-import { Icon } from "@/components/ui/Icon";
+import { Music, Piano, User, Users, Volume2, VolumeX, type LucideIcon } from "lucide-react";
+import { BUTTON, ICON } from "@/components/ui/classes";
 import { useStore } from "@/hooks/useStore";
 import { api, classState, sound } from "@/services";
 import type { Mode } from "@/services/link/messages";
 
-const MODES: { mode: Mode; label: string; icon: "piano" | "music" }[] = [
-  { mode: "piano", label: "Piano", icon: "piano" },
-  { mode: "studio", label: "Studio", icon: "music" },
+const MODES: { mode: Mode; label: string; icon: LucideIcon }[] = [
+  { mode: "piano", label: "Piano", icon: Piano },
+  { mode: "studio", label: "Studio", icon: Music },
 ];
 
 export interface HeaderProps {
@@ -36,7 +36,7 @@ export function Header({ mode, onModeChange, onOpenClass, onOpenAccount }: Heade
             aria-selected={mode === m.mode}
             onClick={() => onModeChange(m.mode)}
           >
-            <Icon name={m.icon} /> {m.label}
+            <m.icon className={ICON} /> {m.label}
           </button>
         ))}
       </nav>
@@ -84,7 +84,7 @@ function SoundToggle() {
       }
       onClick={() => sound.setDeviceSound(!on)}
     >
-      <Icon name={on ? "vol" : "mute"} />
+      {on ? <Volume2 className={ICON} /> : <VolumeX className={ICON} />}
     </button>
   );
 }
@@ -105,7 +105,7 @@ function ClassButton({ onClick }: { onClick: () => void }) {
       disabled={!inClass && cls.where !== "online"}
       onClick={onClick}
     >
-      <Icon name="class" /> Class
+      <Users className={ICON} /> Class
     </button>
   );
 }
@@ -120,7 +120,7 @@ function AccountButton({ onClick }: { onClick: () => void }) {
     >
       {user ? (
         <>
-          <Icon name="user" /> {user.username}
+          <User className={ICON} /> {user.username}
         </>
       ) : (
         "Log in"
