@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "Security vulnerability"
+    url: https://github.com/Pablo-Caballero-Maria/piano/security/advisories/new
+    about: "Report it privately, never in a public issue."
+  - name: "Documentation (wiki)"
+    url: https://github.com/Pablo-Caballero-Maria/piano/wiki
+    about: "How it works, set-up and FAQ."
+  - name: "Live site"
+    url: https://piano-web-virid.vercel.app
+    about: "Try it before reporting."
+  - name: "Project write-up"
+    url: https://pablo-portfolio-woad.vercel.app/projects/piano
+    about: "On the author's portfolio."

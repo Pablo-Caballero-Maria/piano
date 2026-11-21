@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+type: software
+title: "ESP32 Piano: piano lessons with an ESP32 buzzer, a fog node and live classes"
+abstract: "A fog-computing system for piano lessons: the teacher's PC serves the web app, runs the live class and drives an ESP32 buzzer over MQTT with TLS, while students at home follow through Vercel and Ably. It works without internet, updates itself from GitHub after its tests pass and encrypts every stored record with AES-256-GCM."
+authors:
+  - family-names: "Caballero María"
+    given-names: "Pablo"
+version: 1.0.0
+date-released: 2026-11-21
+license: MIT
+repository-code: "https://github.com/Pablo-Caballero-Maria/piano"
+url: "https://piano-web-virid.vercel.app"
+keywords:
+  - "ESP32"
+  - "MicroPython"
+  - "IoT"
+  - "fog computing"
+  - "MQTT"
+  - "FastAPI"
+  - "Next.js"
+  - "MongoDB"
+  - "Ably"
+  - "music education"

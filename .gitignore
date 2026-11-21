@@ -30,3 +30,9 @@ web/AGENTS.md
 web/tsconfig.tsbuildinfo
 web/playwright-report/
 web/test-results/
+
+# Coverage reports
+.coverage
+htmlcov/
+coverage.xml
+web/coverage/

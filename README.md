@@ -1,21 +1,95 @@
-# Piano lessons with an ESP32 buzzer
+<div align="center">
 
-A web piano for piano lessons. The teacher and every student use their phone (or PC). The
-teacher plays — on the piano or in the **Studio**, a piano roll like FL Studio's — and the notes
-sound on a buzzer driven by an ESP32 in the classroom while every student sees them live on their
-own phone. Everyone can also practise alone (piano and studio), save melodies privately or share
-them publicly, and follow lessons from home over the internet.
+# 🎹 ESP32 Piano
 
-The project report (in Spanish) is [docs/memoria/memoria.pdf](docs/memoria/memoria.pdf).
+**Piano lessons where the teacher's notes ring out on an ESP32 buzzer and light up on every student's
+phone**, in the classroom or at home.
 
-```
- phones (teacher, students)  ── HTTPS + WebSocket ──►  teacher's PC  ── MQTT/TLS ──►  ESP32 + buzzer
-   on the classroom router                              (fog node)                   (classroom router)
-                                                           │  when online
-                       GitHub (code) ◄── updates ──────────┤
-                       MongoDB Atlas ◄── sync ─────────────┤
-                       Ably (live lessons) ◄── relay ──────┘
- phones at home  ── HTTPS ──►  Vercel (same website + API on Atlas)  ── Ably ──►  live lessons
+[![CI](https://github.com/Pablo-Caballero-Maria/piano/actions/workflows/ci.yml/badge.svg)](https://github.com/Pablo-Caballero-Maria/piano/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Pablo-Caballero-Maria/piano/actions/workflows/codeql.yml/badge.svg)](https://github.com/Pablo-Caballero-Maria/piano/actions/workflows/codeql.yml)
+[![Coverage (Python)](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FPablo-Caballero-Maria%2Fpiano%2Fbadges%2Fcoverage-python.json)](https://github.com/Pablo-Caballero-Maria/piano/actions/workflows/ci.yml)
+[![Coverage (web)](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FPablo-Caballero-Maria%2Fpiano%2Fbadges%2Fcoverage-web.json)](https://github.com/Pablo-Caballero-Maria/piano/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Pablo-Caballero-Maria/piano)](https://github.com/Pablo-Caballero-Maria/piano/releases)
+[![License: MIT](https://img.shields.io/github/license/Pablo-Caballero-Maria/piano)](LICENSE)
+[![Website](https://img.shields.io/website?url=https%3A%2F%2Fpiano-web-virid.vercel.app&label=piano-web-virid.vercel.app)](https://piano-web-virid.vercel.app)
+
+![ESP32](https://img.shields.io/badge/ESP32-MicroPython_1.29-E7352C?logo=espressif&logoColor=white)
+![MQTT](https://img.shields.io/badge/MQTT-Mosquitto_·_TLS-660066?logo=eclipsemosquitto&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-fog_node-009688?logo=fastapi&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
+![MongoDB Atlas](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)
+![Ably](https://img.shields.io/badge/Ably-live_lessons-FF5416?logo=ably&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-deployed-000000?logo=vercel)
+
+[**Open the website**](https://piano-web-virid.vercel.app) ·
+[Wiki](https://github.com/Pablo-Caballero-Maria/piano/wiki) ·
+[Project report (Spanish)](docs/memoria/memoria.pdf) ·
+[Changelog](CHANGELOG.md) ·
+[Write-up on my portfolio](https://pablo-portfolio-woad.vercel.app/projects/piano)
+
+<img src="docs/img/studio.webp" alt="The Studio: a piano roll with bars, note names and frequencies, transport controls and an on-screen keyboard" width="820">
+
+</div>
+
+A web piano for piano lessons. The teacher and every student use their phone (or PC). The teacher
+plays — on the piano or in the **Studio**, a piano roll like FL Studio's — and the notes sound on a
+buzzer driven by an ESP32 in the classroom while every student sees them live on their own phone.
+Everyone can also practise alone (piano and studio), save melodies privately or share them publicly,
+and follow lessons from home over the internet.
+
+| 🧪 Automated tests | 📡 Internet needed in class | 🔐 Encryption at rest | 🔄 Updates |
+| :---: | :---: | :---: | :---: |
+| 196 (18 run on the board) | none | AES-256-GCM | from GitHub, after the tests pass |
+
+> [!NOTE]
+> The project report (in Spanish) is [docs/memoria/memoria.pdf](docs/memoria/memoria.pdf). It works end
+> to end on real hardware: on 18 November 2026 two phones held a lesson with the buzzer playing, on a
+> phone's hotspot as the classroom router.
+
+## Contents
+
+- [Architecture](#architecture)
+- [A class](#a-class)
+- [Setting up the teacher's PC](#setting-up-the-teachers-pc)
+- [The board](#the-board)
+- [Online: Vercel and Ably](#online-vercel-and-ably)
+- [Development](#development)
+- [Quality and continuous integration](#quality-and-continuous-integration)
+- [Security](#security)
+- [Protocols](#protocols-details-in-each-modules-docstring)
+- [Troubleshooting](#troubleshooting)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [Citing](#citing)
+- [License](#license)
+- [Project context](#project-context-for-the-next-claude-code-session-read-this-first)
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Classroom["🏫 Classroom router"]
+        P["📱 Phones<br/>teacher and students"]
+        PC["💻 Teacher's PC · fog node<br/>nginx · FastAPI app · Mosquitto"]
+        B["🎛️ ESP32 + buzzer<br/>MicroPython"]
+        P -- "HTTPS + WebSocket" --> PC
+        PC -- "MQTT over TLS" --> B
+    end
+    subgraph Internet["☁️ Internet"]
+        GH["GitHub<br/>code"]
+        AT[("MongoDB Atlas")]
+        AB["Ably<br/>live lessons"]
+        V["Vercel<br/>same website + API"]
+    end
+    H["🏠 Phones at home"]
+    PC -. "updates after the tests pass" .-> GH
+    PC -. "sync" .-> AT
+    PC -. "relay" .-> AB
+    H -- HTTPS --> V
+    V --> AT
+    V <-- "Ably" --> H
 ```
 
 - **The teacher's PC** is the *fog node*: it serves the website to the phones in the classroom
@@ -30,28 +104,49 @@ The project report (in Spanish) is [docs/memoria/memoria.pdf](docs/memoria/memor
 - Everything is **encrypted in transit** (HTTPS, WSS, MQTT over TLS) and **at rest** (every stored
   record is sealed with AES-256-GCM using a system key that only the teacher PCs and Vercel hold).
 
+<details>
+<summary><b>The journey of one note</b></summary>
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant T as Teacher's phone
+    participant PC as Teacher's PC (fog app)
+    participant M as Mosquitto
+    participant B as ESP32
+    participant S as Students' phones
+    participant A as Ably (home)
+    T->>T: C5 sounds on the phone first
+    T->>PC: {"t": "note", "freq": 523, "midi": [72]} over WSS
+    PC->>PC: buzzer queue: the teacher holds the buzzer
+    PC->>M: publish 0B 02 (523, little-endian) to piano/piano1/tone
+    M->>B: over TLS
+    B->>B: PWM at 523 Hz, 50 % duty
+    PC->>S: the note, shown in amber
+    PC->>A: relayed for students at home
 ```
-pianocore/   shared by the PC and Vercel: crypto, models, auth, repositories (board / Atlas), the
-             rules (service.py), board⇄Atlas sync, the REST API, Ably helpers
-fog/         the teacher's PC: app.py (FastAPI), classroom.py (live class), buzzer_queue.py,
-             board.py (MQTT link), sync_service.py, updater.py (GitHub), internet.py (DuckDNS),
-             ably_bridge.py, simboard.py (simulated board), settings.py (.env); `python -m fog`
-esp32/       the board's firmware: main.py (boot, rollback, update mode), app.py, mqtt.py (own
-             MQTT client), kv.py (encrypted-blob store), tone.py, config.py, updater.py, ota.py
-api/         the Vercel function (index.py): the API on Atlas, Ably tokens, live lessons
-web/         the website: Next.js + TypeScript, built as a static export (web/out) that Vercel and
-             the PC serve; src/services/link (class link: WebSocket or Ably), src/state (the
-             class), src/studio (piano roll engine), src/components (React). See web/README.md
-install.sh   sets up a teacher's PC and its board from a fresh clone (asks what it needs)
-deploy/      nginx, Mosquitto, certbot (DuckDNS DNS challenge) and systemd setup: `sudo deploy/setup.sh`
-tools/       board.py (install the board over USB), configure.py (.env questions), fake_board.py
-             (pretend board), sim/ (lets the board's MicroPython code run on CPython)
-tests/       core/, fog/, board/ (also run ON the board), integration (real broker); the website's
-             tests are in web/tests (Vitest) and web/e2e (Playwright)
-buzzer.py    the very first demo (scales and tunes, no network), run with mpremote
-docs/memoria/ the project report, memoria.pdf (in Spanish), and its diagrams
-             (`uv run python docs/memoria/diagramas.py` redraws them)
-```
+
+The buzzer has one voice, so a chord is sent as its **resultant frequency**: since
+sin a + sin b = 2·cos((a−b)/2)·sin((a+b)/2), two notes together sound like a wave at their mean
+frequency whose volume beats at their difference, and the buzzer plays that mean.
+
+</details>
+
+### Repository layout
+
+| Folder | What it holds |
+| --- | --- |
+| `pianocore/` | shared by the PC and Vercel: crypto, models, auth, repositories (board / Atlas), the rules (`service.py`), board⇄Atlas sync, the REST API, Ably helpers |
+| `fog/` | the teacher's PC: `app.py` (FastAPI), `classroom.py` (live class), `buzzer_queue.py`, `board.py` (MQTT link), `sync_service.py`, `updater.py` (GitHub), `internet.py` (DuckDNS), `ably_bridge.py`, `simboard.py` (simulated board), `settings.py` (`.env`); `python -m fog` |
+| `esp32/` | the board's firmware: `main.py` (boot, rollback, update mode), `app.py`, `mqtt.py` (own MQTT client), `kv.py` (encrypted-blob store), `tone.py`, `config.py`, `updater.py`, `ota.py` |
+| `api/` | the Vercel function (`index.py`): the API on Atlas, Ably tokens, live lessons |
+| `web/` | the website: Next.js + TypeScript, built as a static export (`web/out`) that Vercel and the PC serve; `src/services/link` (class link: WebSocket or Ably), `src/state` (the class), `src/studio` (piano roll engine), `src/components` (React). See [web/README.md](web/README.md) |
+| `install.sh` | sets up a teacher's PC and its board from a fresh clone (asks what it needs) |
+| `deploy/` | nginx, Mosquitto, certbot (DuckDNS DNS challenge) and systemd setup: `sudo deploy/setup.sh` |
+| `tools/` | `board.py` (install the board over USB), `configure.py` (`.env` questions), `fake_board.py` (pretend board), `sim/` (lets the board's MicroPython code run on CPython) |
+| `tests/` | `core/`, `fog/`, `board/` (also run **on** the board), integration (real broker); the website's tests are in `web/tests` (Vitest) and `web/e2e` (Playwright) |
+| `buzzer.py` | the very first demo (scales and tunes, no network), run with mpremote |
+| `docs/memoria/` | the project report, `memoria.pdf` (in Spanish), and its diagrams (`uv run python docs/memoria/diagramas.py` redraws them) |
 
 ## A class
 
@@ -225,6 +320,7 @@ applies), environment variables `PIANO_DATA_KEY` (the same as the PCs'), `MONGOD
 
 ```sh
 uv run pytest -q                     # Python: core, PC, board code (on CPython), integration
+uv run pytest --cov                  # the same, with coverage (pytest-cov; htmlcov/ with --cov-report=html)
 uv run ruff format . && uv run ruff check .
 PIANO_TEST_MONGODB_URI=… uv run pytest tests/core/test_mongo.py   # against a real MongoDB (throwaway db)
 
@@ -232,6 +328,7 @@ cd web                               # the website (details in web/README.md); `
 npm ci                               #   before npm if this PC has no Node.js ≥ 22.12
 npm run dev                          # hot reload on :3000, with `uv run python -m fog demo` running
 npm run check                        # TypeScript, ESLint, Prettier, Vitest (unit + components)
+npm run test:coverage                # Vitest with coverage (web/coverage/)
 npm run build && npm run test:e2e    # the static site, then Playwright in Chrome against fog demo
 ```
 
@@ -243,6 +340,35 @@ npm run build && npm run test:e2e    # the static site, then Playwright in Chrom
   storage code; `tests/fog/test_updater.py` runs self-updates against throwaway git repos.
 - FastAPI modules with dependencies defined inside functions must not use
   `from __future__ import annotations` (FastAPI then can't resolve them: 422 errors).
+
+## Quality and continuous integration
+
+Every push and pull request runs on [GitHub Actions](https://github.com/Pablo-Caballero-Maria/piano/actions):
+
+```mermaid
+flowchart LR
+    P(["push / PR"]) --> PY["Python<br/>Ruff · pytest + coverage<br/>(real MongoDB, amqtt broker)"]
+    P --> W["Website<br/>tsc · ESLint · Prettier<br/>Vitest + coverage · next build"]
+    W --> E["End to end<br/>Playwright in Chrome<br/>against fog demo"]
+    P --> C["CodeQL<br/>Python · TS · workflows"]
+    PY & W & E --> BD["Coverage badges<br/>(main only)"]
+```
+
+| Suite | Tests | What they cover | Where |
+| --- | ---: | --- | --- |
+| pytest | 102 | the shared core, the PC app end to end (REST and WebSocket with the board's real storage code), updates against throwaway git repositories, an MQTT integration test through a real broker, the Atlas repository against a real MongoDB | `tests/` |
+| …on the board | 18 of the 102 | written for MicroPython: pytest runs them on the PC and the board runs them on itself before installing an update | `tests/board/` |
+| Vitest | 90 | website logic, services, the Studio engine and components | `web/tests/` |
+| Playwright | 4 | several phones in one class, in Chrome, against the PC app with a simulated board | `web/e2e/` |
+
+> [!TIP]
+> The teacher's PCs don't trust CI: every hour they run the newest commit's own tests (pytest, then the
+> website's `npm ci`, Vitest and build) in a separate git worktree and only switch to it if they pass
+> (`fog/updater.py`).
+
+Security tooling: CodeQL ([codeql.yml](.github/workflows/codeql.yml)), Dependabot for uv, npm and the
+Actions ([dependabot.yml](.github/dependabot.yml)), and secret scanning with push protection — `.env`
+must never be committed.
 
 ## Security
 
@@ -281,6 +407,54 @@ npm run build && npm run test:e2e    # the static site, then Playwright in Chrom
 - **`mpremote` can't open /dev/ttyUSB0**: the user must be in the port's group (`uucp` on Arch,
   `dialout` on Debian; `./install.sh board` adds it); nothing else may hold the port.
 - **"could not enter raw repl" right after a reset**: the board was still booting; run it again.
+
+## Documentation
+
+The [wiki](https://github.com/Pablo-Caballero-Maria/piano/wiki) goes deeper:
+
+| Page | What's there |
+| --- | --- |
+| [Architecture](https://github.com/Pablo-Caballero-Maria/piano/wiki/Architecture) | the three zones, the fog node, the life of a note and of a lesson |
+| [Setting up a classroom](https://github.com/Pablo-Caballero-Maria/piano/wiki/Setting-up-a-classroom) | `install.sh`, DuckDNS and the certificate, another teacher, running without internet |
+| [The board](https://github.com/Pablo-Caballero-Maria/piano/wiki/The-board) | wiring, firmware, MQTT, the encrypted store, over-the-air updates and rollback |
+| [Security and sync](https://github.com/Pablo-Caballero-Maria/piano/wiki/Security-and-sync) | keys, encryption, sessions, MQTT ACLs, board ⇄ Atlas sync |
+| [The website](https://github.com/Pablo-Caballero-Maria/piano/wiki/The-website) | piano, Studio, class panel, offline and online links |
+| [Development and testing](https://github.com/Pablo-Caballero-Maria/piano/wiki/Development-and-testing) | local set-up, the test suites, coverage, CI and releases |
+| [FAQ](https://github.com/Pablo-Caballero-Maria/piano/wiki/FAQ) | common questions |
+
+## Contributing
+
+- Open an issue with a template: [bug](https://github.com/Pablo-Caballero-Maria/piano/issues/new?template=bug_report.yml),
+  [feature](https://github.com/Pablo-Caballero-Maria/piano/issues/new?template=feature_request.yml) or
+  [classroom or hardware problem](https://github.com/Pablo-Caballero-Maria/piano/issues/new?template=classroom_problem.yml).
+- Pull requests follow the [template](.github/pull_request_template.md) and must pass CI. Remember that
+  `main` is what every teacher's PC installs.
+- Everyone is expected to follow the [code of conduct](CODE_OF_CONDUCT.md).
+- Report security problems privately, as [SECURITY.md](SECURITY.md) explains.
+
+## Citing
+
+Use the metadata in [CITATION.cff](CITATION.cff) (GitHub's *Cite this repository* button).
+
+<details>
+<summary>BibTeX</summary>
+
+```bibtex
+@software{caballero_maria_esp32_piano_2026,
+  author  = {Caballero María, Pablo},
+  title   = {ESP32 Piano: piano lessons with an ESP32 buzzer, a fog node and live classes},
+  year    = {2026},
+  version = {1.0.0},
+  url     = {https://github.com/Pablo-Caballero-Maria/piano},
+  license = {MIT}
+}
+```
+
+</details>
+
+## License
+
+[MIT](LICENSE).
 
 ---
 

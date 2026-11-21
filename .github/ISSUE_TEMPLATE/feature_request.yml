@@ -1,0 +1,30 @@
+name: "Feature request"
+description: "An idea to improve the project."
+title: "[Idea] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: "What problem does it solve?"
+      placeholder: "I'm always frustrated when…"
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: "What you propose"
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives you considered"
+  - type: dropdown
+    id: help
+    attributes:
+      label: "Would you like to implement it?"
+      options:
+        - "Yes, I'll open a pull request"
+        - "I could help"
+        - "No"

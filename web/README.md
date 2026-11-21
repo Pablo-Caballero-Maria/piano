@@ -21,6 +21,7 @@ npm ci                          # once (Node ≥ 22.12; or prefix each command w
 uv run python -m fog demo       # in another terminal, from the repository root: the PC's app + a simulated board
 npm run dev                     # http://localhost:3000, hot reload; /api and /ws go to the demo (PIANO_BACKEND)
 npm run check                   # types, lint, formatting, unit and component tests
+npm run test:coverage           # unit and component tests with coverage (coverage/)
 npm run build                   # the static site, in out/ (the demo serves it on :8080)
 npm run test:e2e                # end to end, in Chrome: builds nothing, so `npm run build` first
 npm run format                  # Prettier

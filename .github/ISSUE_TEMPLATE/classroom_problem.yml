@@ -1,0 +1,26 @@
+name: "Classroom or hardware problem"
+description: "The board, the buzzer, the classroom WiFi, MQTT or the teacher's PC set-up."
+title: "[Classroom] "
+labels: ["bug"]
+body:
+  - type: input
+    id: board
+    attributes:
+      label: "Board and firmware"
+      placeholder: "e.g. ESP32-WROOM, MicroPython 1.29, buzzer on GPIO 33"
+    validations:
+      required: true
+  - type: textarea
+    id: check
+    attributes:
+      label: "Output of `uv run python -m fog check`"
+      placeholder: "Paste it here (remove passwords and tokens)"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Relevant logs"
+      placeholder: "`journalctl -u piano-fog -n 100` (remove secrets)"
+    validations:
+      required: false

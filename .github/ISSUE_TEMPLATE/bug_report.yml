@@ -1,0 +1,64 @@
+name: "Bug report"
+description: "Something doesn't work as it should."
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report it! For a **security** problem, don't use this form: follow [SECURITY.md](../blob/main/SECURITY.md).
+  - type: dropdown
+    id: where
+    attributes:
+      label: "Where"
+      options:
+        - "The classroom (teacher's PC + board)"
+        - "The website online (Vercel)"
+        - "The ESP32 board / firmware"
+        - "install.sh or deploy/"
+        - "Updates from GitHub"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: "What happened"
+      description: "A clear description of the problem, with screenshots if they help."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Steps to reproduce"
+      placeholder: |
+        1. Go to …
+        2. Click …
+        3. See …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: "What you expected"
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: "Where it happened"
+      placeholder: "e.g. classroom (teacher's PC on Arch, board on MicroPython 1.29) or online (Vercel) on Android/Chrome"
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Logs or console output"
+      description: "Remove any password, token or key before pasting."
+      render: shell
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: "Before sending"
+      options:
+        - label: "I searched the open and closed issues and this isn't reported yet."
+          required: true
+        - label: "I agree to follow the [code of conduct](../blob/main/CODE_OF_CONDUCT.md)."
+          required: true

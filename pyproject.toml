@@ -1,6 +1,6 @@
 [project]
 name = "piano"
-version = "0.1.0"
+version = "1.0.0"
 description = "Piano lessons with an ESP32 buzzer: a teacher PC (fog node), MQTT, MongoDB Atlas, Vercel and Ably"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -19,6 +19,7 @@ dev = [
     "mpremote>=1.29.0",
     "pytest>=8",
     "pytest-asyncio>=0.24",
+    "pytest-cov>=7.1.0",
     "ruff>=0.8",
 ]
 # Node.js for the website (web/), pinned here so every teacher PC builds it the same way:
@@ -34,6 +35,15 @@ addopts = "--import-mode=importlib"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 filterwarnings = ["ignore::DeprecationWarning:fastapi.testclient", "ignore:Using `httpx` with `starlette.testclient`"]
+
+[tool.coverage.run]
+# The shared core, the teacher's PC app, the Vercel function, the board's firmware (run on CPython
+# through tools/sim) and the tools.
+source = ["pianocore", "fog", "api", "esp32", "tools"]
+branch = true
+
+[tool.coverage.report]
+skip_covered = true
 
 [tool.ruff]
 line-length = 110
