@@ -55,7 +55,7 @@ export function StudioView({ studio, library, active, teacherNotes }: StudioView
       <div className="flex-none px-3 pt-2 pb-2.5 short:pt-1 short:pb-1.5" hidden={s.keyboardHidden}>
         <div className="mb-1.5 flex flex-wrap items-center gap-3 short:mb-1">
           <OctaveControls controller={studio.keyboard} compact />
-          <span className="text-[13px] text-muted very-narrow:hidden short:hidden">
+          <span className="text-[13px] text-muted short:hidden very-narrow:hidden">
             Play here (or <b>A W S E D…</b>) to hear notes · press <b className="text-err">●</b> to record
             them into the melody
           </span>

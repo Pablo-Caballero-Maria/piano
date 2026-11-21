@@ -36,7 +36,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
       : "Private: only you see it";
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 pb-2 small-screen:flex-nowrap small-screen:gap-x-3 small-screen:overflow-x-auto small-screen:[scrollbar-width:none] small-screen:[&::-webkit-scrollbar]:hidden">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 pb-2 small-screen:[scrollbar-width:none] small-screen:flex-nowrap small-screen:gap-x-3 small-screen:overflow-x-auto small-screen:[&::-webkit-scrollbar]:hidden">
       <div className={GROUP}>
         <input
           className="w-[15ch] font-semibold small-screen:w-[11ch]"

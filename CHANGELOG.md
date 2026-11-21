@@ -6,6 +6,10 @@ All notable changes to ESP32 Piano are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `prettier-plugin-tailwindcss` in `web/`: Prettier keeps the Tailwind classes in their recommended order.
+
 ### Changed
 
 - The website is styled with **Tailwind CSS v4**: utility classes on the elements, and

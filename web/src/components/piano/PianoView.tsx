@@ -71,11 +71,11 @@ export function PianoView({ active, teacherNotes, ref }: PianoViewProps) {
         <NowPlaying pitches={note ? [note] : []} freq={note ? freqOf(note) : 0} />
         <OctaveControls controller={keyboard} />
       </div>
-      <div className="px-4 pb-2.5 text-[13px] text-muted no-mouse:hidden short:hidden">
+      <div className="px-4 pb-2.5 text-[13px] text-muted short:hidden no-mouse:hidden">
         Keyboard: <b>A W S E D F T G Y H U J K…</b> play notes · <b>Z / X</b> change octave · the speaker
         button also plays them on this device
       </div>
-      <div className="px-4 pb-2.5 text-[13px] text-muted landscape-or-mouse:hidden short:hidden">
+      <div className="px-4 pb-2.5 text-[13px] text-muted short:hidden landscape-or-mouse:hidden">
         Tip: turn your phone sideways for more keys.
       </div>
       <Keyboard controller={keyboard} sounding={note ? [note] : []} teacher={teacherNotes} />
