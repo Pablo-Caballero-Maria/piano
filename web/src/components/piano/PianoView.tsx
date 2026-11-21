@@ -66,16 +66,18 @@ export function PianoView({ active, teacherNotes, ref }: PianoViewProps) {
   }, [active]);
 
   return (
-    <main className="view piano-view" hidden={!active}>
-      <div className="bar">
+    <main className="piano-view flex min-h-0 flex-1 flex-col" hidden={!active}>
+      <div className="flex flex-wrap items-center gap-2.5 px-4 pb-3 short:pb-2">
         <NowPlaying pitches={note ? [note] : []} freq={note ? freqOf(note) : 0} />
         <OctaveControls controller={keyboard} />
       </div>
-      <div className="hint keys">
+      <div className="px-4 pb-2.5 text-[13px] text-muted no-mouse:hidden short:hidden">
         Keyboard: <b>A W S E D F T G Y H U J K…</b> play notes · <b>Z / X</b> change octave · the speaker
         button also plays them on this device
       </div>
-      <div className="hint rotate">Tip: turn your phone sideways for more keys.</div>
+      <div className="px-4 pb-2.5 text-[13px] text-muted landscape-or-mouse:hidden short:hidden">
+        Tip: turn your phone sideways for more keys.
+      </div>
       <Keyboard controller={keyboard} sounding={note ? [note] : []} teacher={teacherNotes} />
     </main>
   );

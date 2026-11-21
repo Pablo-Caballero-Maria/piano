@@ -8,6 +8,8 @@
  *
  * `npm run dev` serves the page with hot reload and sends /api and /ws (the live class) to the PC's
  * app running locally: `uv run python -m fog demo` (http://127.0.0.1:8080, or PIANO_BACKEND).
+ *
+ * The styles are Tailwind CSS v4 (src/app/globals.css), compiled by its Turbopack loader.
  */
 import type { NextConfig } from "next";
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
@@ -17,6 +19,14 @@ const BACKEND = process.env.PIANO_BACKEND ?? "http://127.0.0.1:8080";
 const base: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  turbopack: {
+    rules: {
+      "*.css": {
+        loaders: ["@tailwindcss/turbopack"],
+        as: "*.css",
+      },
+    },
+  },
 };
 
 export default function nextConfig(phase: string): NextConfig {

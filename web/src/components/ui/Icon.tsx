@@ -2,6 +2,7 @@
  * Icons: inline SVG symbols (emoji fonts are missing on some PCs and look different on each phone).
  * <IconSprite/> defines them once; <Icon name="play"/> uses one.
  */
+import { ICON } from "./classes";
 
 const ICONS = {
   piano: (
@@ -150,7 +151,7 @@ export function IconSprite() {
 
 export function Icon({ name }: { name: IconName }) {
   return (
-    <svg className="ic" aria-hidden="true">
+    <svg className={ICON} aria-hidden="true">
       <use href={`#i-${name}`} />
     </svg>
   );

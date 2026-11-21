@@ -109,7 +109,7 @@ export function PianoApp() {
   };
 
   return (
-    <div className="app">
+    <div className="flex h-dvh flex-col pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]">
       <Header
         mode={shown}
         onModeChange={setMode}

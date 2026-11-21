@@ -5,6 +5,7 @@
  * (state/dialogs.ts), which resolves once the user is logged in or gives up.
  */
 import { useState, type FormEvent } from "react";
+import { BUTTON, DIALOG_ROW, MUTED_P, SEGMENTED } from "@/components/ui/classes";
 import { useStore } from "@/hooks/useStore";
 import { MIN_PASSWORD } from "@/lib/credentials";
 import { api, type Role } from "@/services/api";
@@ -13,6 +14,9 @@ import { toast } from "@/state/toast";
 import { Modal } from "./Modal";
 
 type Tab = "login" | "register";
+
+const LABEL = "my-3 flex flex-col gap-1.5 text-[13px] text-muted";
+const FIELD = "w-full text-[16px]";
 
 export function AuthDialog() {
   const request = useStore(authStore, null);
@@ -68,30 +72,51 @@ export function AuthDialog() {
   return (
     <Modal open={!!request} onClose={close} label="Your account">
       <form onSubmit={submit}>
-        <h2>Your account</h2>
-        {request?.reason ? <p className="muted">{request.reason}</p> : null}
-        <p className="muted">Your account and melodies are kept on the classroom board and in the cloud.</p>
-        <div className="seg">
-          <button type="button" aria-pressed={tab === "login"} onClick={() => chooseTab("login")}>
+        <h2 className="mb-3 text-[17px] font-bold">Your account</h2>
+        {request?.reason ? <p className={MUTED_P}>{request.reason}</p> : null}
+        <p className={MUTED_P}>Your account and melodies are kept on the classroom board and in the cloud.</p>
+        <div className={SEGMENTED.group}>
+          <button
+            type="button"
+            className={SEGMENTED.button}
+            aria-pressed={tab === "login"}
+            onClick={() => chooseTab("login")}
+          >
             Log in
           </button>
-          <button type="button" aria-pressed={tab === "register"} onClick={() => chooseTab("register")}>
+          <button
+            type="button"
+            className={SEGMENTED.button}
+            aria-pressed={tab === "register"}
+            onClick={() => chooseTab("register")}
+          >
             Create account
           </button>
         </div>
         {tab === "register" ? (
-          <div className="seg role">
-            <button type="button" aria-pressed={role === "student"} onClick={() => setRole("student")}>
+          <div className={`${SEGMENTED.group} mt-2.5`}>
+            <button
+              type="button"
+              className={SEGMENTED.button}
+              aria-pressed={role === "student"}
+              onClick={() => setRole("student")}
+            >
               I&apos;m a student
             </button>
-            <button type="button" aria-pressed={role === "teacher"} onClick={() => setRole("teacher")}>
+            <button
+              type="button"
+              className={SEGMENTED.button}
+              aria-pressed={role === "teacher"}
+              onClick={() => setRole("teacher")}
+            >
               I&apos;m a teacher
             </button>
           </div>
         ) : null}
-        <label>
+        <label className={LABEL}>
           Username
           <input
+            className={FIELD}
             name="username"
             autoComplete="username"
             required
@@ -103,9 +128,10 @@ export function AuthDialog() {
             onChange={(e) => setUsername(e.target.value)}
           />
         </label>
-        <label>
+        <label className={LABEL}>
           Password
           <input
+            className={FIELD}
             name="password"
             type="password"
             autoComplete={tab === "login" ? "current-password" : "new-password"}
@@ -115,14 +141,14 @@ export function AuthDialog() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </label>
-        <p className="err" role="alert">
+        <p className="mt-1 min-h-[1.2em] text-[13px] text-[#ff9b9e]" role="alert">
           {error}
         </p>
-        <div className="row">
+        <div className={DIALOG_ROW}>
           <button type="button" onClick={close}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={busy}>
+          <button type="submit" className={BUTTON.primary} disabled={busy}>
             {tab === "login" ? "Log in" : "Create account"}
           </button>
         </div>

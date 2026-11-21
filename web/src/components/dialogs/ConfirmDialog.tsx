@@ -1,6 +1,7 @@
 "use client";
 
 /** The yes/no question asked with confirmDialog() (state/dialogs.ts). */
+import { BUTTON, DIALOG_ROW } from "@/components/ui/classes";
 import { useStore } from "@/hooks/useStore";
 import { confirmStore } from "@/state/dialogs";
 import { Modal } from "./Modal";
@@ -14,12 +15,12 @@ export function ConfirmDialog() {
   };
   return (
     <Modal open={!!request} onClose={() => answer(false)} label="Confirm">
-      <p>{request?.message}</p>
-      <div className="row">
+      <p className="my-[1em]">{request?.message}</p>
+      <div className={DIALOG_ROW}>
         <button type="button" onClick={() => answer(false)}>
           Cancel
         </button>
-        <button type="button" className="primary danger" onClick={() => answer(true)}>
+        <button type="button" className={BUTTON.primaryDanger} onClick={() => answer(true)}>
           {request?.okLabel ?? "OK"}
         </button>
       </div>

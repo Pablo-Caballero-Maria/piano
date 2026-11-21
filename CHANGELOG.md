@@ -6,6 +6,14 @@ All notable changes to ESP32 Piano are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The website is styled with **Tailwind CSS v4**: utility classes on the elements, and
+  `web/src/app/globals.css` for what they don't express (the theme, the buttons' and fields' defaults,
+  the keyframes, the piano roll's grid lines). It is compiled by `@tailwindcss/turbopack`, declared in
+  `next.config.ts` as in the other websites. The page looks the same: compared screenshot by screenshot
+  on a desktop, a phone and a phone in landscape.
+
 ## [1.1.1] - 2026-11-21
 
 ### Changed

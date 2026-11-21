@@ -4,7 +4,7 @@ import { openClass, signUp } from "./helpers";
 
 /** Click the roll's grid `beats` beats from its left edge, on row `rows` from the top of the view. */
 async function clickGrid(page: Page, beats: number) {
-  const grid = page.locator(".roll .grid");
+  const grid = page.locator(".roll .roll-grid");
   const box = (await grid.boundingBox())!;
   const ppb = Number(
     await page.locator(".roll").evaluate((el) => getComputedStyle(el).getPropertyValue("--ppb")),

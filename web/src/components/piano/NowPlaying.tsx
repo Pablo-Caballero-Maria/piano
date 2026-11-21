@@ -1,5 +1,7 @@
 import { noteName } from "@/lib/notes";
 
+const UNIT = "ml-1.5 text-[14px] font-medium text-muted";
+
 /**
  * What sounds now: "C4 262 Hz" for one note; "C4+E4 → 296 Hz" for several (their resultant
  * frequency, what the buzzer plays); "–" for silence.
@@ -21,7 +23,7 @@ export function NowPlaying({
     content = (
       <>
         {names[0]}
-        <small>{freq} Hz</small>
+        <small className={UNIT}>{freq} Hz</small>
       </>
     );
   } else if (names.length > 1) {
@@ -29,12 +31,19 @@ export function NowPlaying({
     content = (
       <>
         {shown}
-        <small>→ {freq} Hz</small>
+        <small className={UNIT}>→ {freq} Hz</small>
       </>
     );
   }
   return (
-    <div className={small ? "now small" : "now"} title={title}>
+    <div
+      className={`now font-bold whitespace-nowrap tabular-nums ${
+        small
+          ? "mr-0 ml-auto min-w-[6ch] text-[18px] small-screen:order-10 small-screen:ml-0"
+          : "mr-auto min-w-[7ch] text-[28px] short:text-[22px]"
+      }`}
+      title={title}
+    >
       {content}
     </div>
   );

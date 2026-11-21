@@ -3,6 +3,11 @@
  * grid with the notes, the playhead and the selection box. Positions are CSS calc()s of a few
  * custom properties (--ppb px per beat, --rowh px per row, --beats, --rows, --keyw), so zooming
  * doesn't touch each note. This class only draws; the engine decides what.
+ *
+ * The elements are styled with Tailwind classes (the grid's lines are utilities in globals.css).
+ * The engine marks states with plain classes, which the elements' [&.state]: variants style:
+ * the roll is .fine when zoomed in, the grid .erasing or .readonly, a note .sel, .rec or .on (playing),
+ * a piano key .hover or .on.
  */
 import { exactFreq, freqOf, isBlack, noteName } from "@/lib/notes";
 import { BEATS_PER_BAR, HIGH, KEY_W, LOW, MAX_PPB, MIN_BARS, MIN_PPB } from "./constants";
@@ -22,6 +27,37 @@ export interface NoteLook {
   selected: boolean;
   playing: boolean;
 }
+
+const PX = {
+  keyW: "w-[calc(var(--keyw)*1px)]",
+  beatsW: "w-[calc(var(--beats)*var(--ppb)*1px)]",
+  rowH: "h-[calc(var(--rowh)*1px)]",
+};
+
+const CLASSES = {
+  inner: "relative w-[calc((var(--keyw)_+_var(--beats)*var(--ppb))*1px)]",
+  rulerRow: "sticky top-0 z-4 flex h-6 border-b border-line bg-panel",
+  corner: `sticky left-0 z-5 flex flex-none items-center justify-center border-r border-line bg-panel text-[11px] text-muted ${PX.keyW}`,
+  ruler: `ruler-bg relative flex-none cursor-pointer touch-none ${PX.beatsW}`,
+  rulerLabel:
+    "pointer-events-none absolute top-1 left-[calc(var(--bar)*var(--ppb)*4px_+_4px)] text-[11px] text-muted tabular-nums",
+  cursorMark:
+    "pointer-events-none absolute top-0 -left-1.5 z-1 size-0 border-x-[6px] border-t-[9px] border-x-transparent border-t-warn",
+  rulerHead: "pointer-events-none absolute inset-y-0 -left-px w-0.5 bg-accent",
+  pkeys: `sticky left-0 z-3 flex-none cursor-pointer touch-none ${PX.keyW}`,
+  pianoKey: `pk flex items-center justify-between gap-0.5 overflow-hidden border-b border-black/30 px-[5px] text-[10px] leading-none [&.hover]:shadow-[inset_4px_0_0_var(--color-warn)] ${PX.rowH}`,
+  whiteKey: "bg-[#e7e6e1] text-[#6b6b6b] [&.on]:bg-[#8fd4b0]",
+  blackKey: "bg-[#24262c] text-[#8f949c] [&.on]:bg-[#2a7b54] [&.on]:text-fg",
+  grid: `roll-grid roll-grid-bg relative h-[calc(var(--rows)*var(--rowh)*1px)] flex-none cursor-cell touch-pan-x touch-pan-y [.fine_&]:[--step-line:#2b3039] [&.erasing:not(.readonly)]:cursor-crosshair [&.readonly]:cursor-default ${PX.beatsW}`,
+  notes: "absolute inset-0",
+  note: `note absolute box-border cursor-grab touch-none overflow-hidden rounded-[3px] border border-[#276b4b] bg-[#5fd39a] pl-[3px] text-[10px] leading-[calc(var(--rowh)*1px_-_2px)] font-semibold whitespace-nowrap text-[#0b2a1b] top-[calc(var(--r)*var(--rowh)*1px)] left-[calc(var(--s)*var(--ppb)*1px)] w-[max(4px,calc(var(--d)*var(--ppb)*1px))] ${PX.rowH} [.erasing_&]:cursor-crosshair [&.on]:z-1 [&.on]:shadow-[0_0_0_1px_#fff,0_0_10px_rgba(143,243,193,0.8)] [&.on]:brightness-120 [&.rec]:border-[#9c2f2f] [&.rec]:bg-[#ff7b7b] [&.sel]:text-[#2a1800] [&.sel:not(.rec)]:border-[#9a5f0c] [&.sel:not(.rec)]:bg-[#ffb454]`,
+  /** The note's right edge: drag to resize (wider for fingers). */
+  noteHandle:
+    "h absolute inset-y-0 right-0 w-[min(8px,35%)] cursor-ew-resize pointer-coarse:w-[min(16px,45%)]",
+  playhead:
+    "pointer-events-none absolute inset-y-0 -left-px z-2 w-0.5 bg-accent shadow-[0_0_6px_var(--color-accent)]",
+  selBox: "pointer-events-none absolute z-3 border border-dashed border-[#ffb454] bg-[rgba(255,180,84,0.12)]",
+};
 
 function div(className: string, parent?: HTMLElement): HTMLDivElement {
   const el = document.createElement("div");
@@ -51,27 +87,29 @@ export class RollView {
 
   constructor(readonly roll: HTMLElement) {
     roll.replaceChildren();
-    const inner = div("roll-inner", roll);
-    const rulerRow = div("ruler-row", inner);
-    div("corner", rulerRow).textContent = "Bar";
-    this.ruler = div("ruler", rulerRow);
-    this.rulerLabels = div("ruler-labels", this.ruler);
-    this.cursorMark = div("cursor-mark", this.ruler);
-    this.rulerHead = div("ruler-head", this.ruler);
-    const body = div("body-row", inner);
-    this.pkeys = div("pkeys", body);
-    this.grid = div("grid", body);
-    this.notesLayer = div("notes", this.grid);
-    this.playhead = div("playhead", this.grid);
-    this.selBox = div("selbox", this.grid);
+    const inner = div(CLASSES.inner, roll);
+    const rulerRow = div(CLASSES.rulerRow, inner);
+    div(CLASSES.corner, rulerRow).textContent = "Bar";
+    this.ruler = div(CLASSES.ruler, rulerRow);
+    this.rulerLabels = div("", this.ruler);
+    this.cursorMark = div(CLASSES.cursorMark, this.ruler);
+    this.rulerHead = div(CLASSES.rulerHead, this.ruler);
+    const body = div("flex", inner);
+    this.pkeys = div(CLASSES.pkeys, body);
+    this.grid = div(CLASSES.grid, body);
+    this.notesLayer = div(CLASSES.notes, this.grid);
+    this.playhead = div(CLASSES.playhead, this.grid);
+    this.selBox = div(CLASSES.selBox, this.grid);
     this.selBox.hidden = true;
 
     for (let m = HIGH; m >= LOW; m--) {
-      const k = div(`pk ${isBlack(m) ? "b" : "w"}${m % 12 === 0 ? " c" : ""}`, this.pkeys);
+      const k = div(`${CLASSES.pianoKey} ${isBlack(m) ? CLASSES.blackKey : CLASSES.whiteKey}`, this.pkeys);
       k.dataset.midi = String(m);
       const name = document.createElement("b");
+      name.className = m % 12 === 0 ? "font-[750] text-[#111]" : "font-semibold";
       name.textContent = noteName(m);
       const freq = document.createElement("span");
+      freq.className = "text-[9px] tabular-nums opacity-70";
       freq.textContent = String(freqOf(m));
       k.append(name, freq);
       k.title = `${noteName(m)} = ${exactFreq(m).toFixed(1)} Hz`;
@@ -99,6 +137,7 @@ export class RollView {
     const labels = [];
     for (let b = 0; b < bars; b++) {
       const span = document.createElement("span");
+      span.className = CLASSES.rulerLabel;
       span.style.setProperty("--bar", String(b));
       span.textContent = String(b + 1);
       labels.push(span);
@@ -123,11 +162,13 @@ export class RollView {
   drawNote(n: EditorNote, look: NoteLook): void {
     let el = this.noteEls.get(n.id);
     if (!el) {
-      el = div("note", this.notesLayer);
+      el = div(CLASSES.note, this.notesLayer);
       el.dataset.id = String(n.id);
-      el.append(document.createElement("span"));
+      const name = document.createElement("span");
+      name.className = "pointer-events-none";
+      el.append(name);
       const handle = document.createElement("i");
-      handle.className = "h";
+      handle.className = CLASSES.noteHandle;
       el.append(handle);
       this.noteEls.set(n.id, el);
     }

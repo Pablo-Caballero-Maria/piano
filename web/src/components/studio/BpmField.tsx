@@ -27,11 +27,11 @@ export function BpmField({ bpm, onCommit }: { bpm: number; onCommit: (value: num
   }, [bpm]);
 
   return (
-    <label className="field">
+    <label className="flex items-center gap-1.5 text-[13px] text-muted">
       BPM{" "}
       <input
         ref={ref}
-        className="bpm-input"
+        className="w-[6.5ch]"
         type="number"
         min={MIN_BPM}
         max={MAX_BPM}

@@ -186,7 +186,7 @@ describe("StudioEngine", () => {
       playing: false,
     });
     expect(studio.store.get()).toMatchObject({ following: "Profe", name: "Lesson", bpm: 90 });
-    expect(roll.querySelector(".grid")?.classList.contains("readonly")).toBe(true);
+    expect(roll.querySelector(".roll-grid")?.classList.contains("readonly")).toBe(true);
     studio.keyDown(key("KeyA", { ctrlKey: true }));
     studio.keyDown(key("Delete"));
     expect(notes()).toEqual([{ p: 67, s: 0, d: 4 }]); // read-only

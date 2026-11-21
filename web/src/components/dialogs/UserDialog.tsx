@@ -1,6 +1,7 @@
 "use client";
 
 /** The logged-in user: who they are, and Log out. */
+import { DIALOG_ROW, MUTED_P } from "@/components/ui/classes";
 import { Icon } from "@/components/ui/Icon";
 import { api, type User } from "@/services/api";
 import { toast } from "@/state/toast";
@@ -27,11 +28,11 @@ export function UserDialog({
   };
   return (
     <Modal open={open && !!user} onClose={onClose} label="Account">
-      <h2>
+      <h2 className="mb-3 text-[17px] font-bold">
         <Icon name="user" /> <span>{user?.username}</span>
       </h2>
-      <p className="muted">{user ? ROLE_TEXT[user.role] : ""}</p>
-      <div className="row">
+      <p className={MUTED_P}>{user ? ROLE_TEXT[user.role] : ""}</p>
+      <div className={DIALOG_ROW}>
         <button type="button" onClick={onClose}>
           Close
         </button>

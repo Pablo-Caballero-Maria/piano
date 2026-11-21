@@ -16,11 +16,18 @@ export function ClassBar() {
   if (cls.where === "classroom" && me && cls.buzzer.holder === me) parts.push("you're playing on the buzzer");
   else if (cls.where === "classroom" && pos > 0) parts.push(`you're #${pos + 1} for the buzzer`);
   if (cls.status.state !== "on" || !parts.length) return null;
+  const live = !!cls.lesson.live;
   return (
-    <div className={cls.lesson.live ? "classbar live" : "classbar"}>
-      <span className="dot" />
+    <div
+      className={`classbar mx-4 mb-2 flex items-center gap-2 rounded-[10px] border px-3 py-2 text-[14px] ${live ? "border-[#5a4a2a] bg-[#241f15]" : "border-line bg-panel"}`}
+    >
+      <span
+        className={`size-2.5 flex-none rounded-full ${live ? "animate-[blink_1.2s_infinite_alternate] bg-teacher shadow-[0_0_8px_var(--color-teacher)]" : "bg-muted"}`}
+      />
       <span>{parts.join(" · ")}</span>
-      <span className="teacher-notes">{noteNames(cls.teacherNotes)}</span>
+      <span className="teacher-notes ml-auto font-semibold text-teacher tabular-nums">
+        {noteNames(cls.teacherNotes)}
+      </span>
     </div>
   );
 }

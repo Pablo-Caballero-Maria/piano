@@ -31,7 +31,9 @@ npm run format                  # Prettier
 
 ```
 src/
-  app/          Next.js: the root layout (metadata, styles, icon sprite) and the one page
+  app/          Next.js: the root layout (metadata, icon sprite), the one page, and globals.css:
+                Tailwind CSS v4's theme (colours, fonts, screen sizes), the buttons' and fields'
+                defaults, the keyframes and the piano roll's grid lines
   components/   React components
     app/        PianoApp (the page: modes, computer keys, dialogs), Header, ClassBar, useLessonSync
     piano/      Piano mode, and what's sounding now
@@ -39,7 +41,7 @@ src/
     studio/     the Studio's toolbar, view and melody list (the roll itself is studio/engine.ts)
     class/      the class panel (lesson, buzzer queue, people, the classroom PC)
     dialogs/    <dialog> wrapper, login, account, confirm
-    ui/         icons, toasts
+    ui/         icons, toasts, the Tailwind classes several components share (classes.ts)
   hooks/        useStore / useSelect (stores → React), useMode (#piano / #studio)
   lib/          plain logic, no DOM: notes and the resultant frequency, melody text format,
                 the playback timeline, undo history, keyboard layout and controller, stores
@@ -49,7 +51,6 @@ src/
   studio/       the piano roll engine: model, undo, playback, recording, following the teacher
                 (engine.ts), its DOM (roll-view.ts), mouse/touch editing (gestures.ts), saving
                 and opening melodies (library.ts)
-  styles/       the stylesheet, by area
 tests/          Vitest + Testing Library (jsdom), mirroring src/
 e2e/            Playwright: real Chrome against the PC's app with a simulated board
 ```
@@ -63,6 +64,9 @@ DOM the engine updates directly, inside an element React leaves alone.
 ## Conventions
 
 - TypeScript `strict`; ESLint (Next.js's rules, React hooks, accessibility); Prettier, 110 columns.
+- Styles are Tailwind utility classes on the elements (the roll's, in `studio/roll-view.ts`);
+  `globals.css` keeps only what utilities don't express. Class names without styles (`.key`,
+  `.roll`, `.note`, `.sel`…) are what tests and the pointer code look for.
 - No secrets here: the page only knows its own origin. Passwords never leave the browser (it
   sends a PBKDF2 key, `lib/credentials.ts`); the session token is kept in localStorage.
 - Ably's v3 browser SDK (required by the account's MAU pricing) isn't on npm: it's loaded from

@@ -38,26 +38,29 @@ export function StudioView({ studio, library, active, teacherNotes }: StudioView
   };
 
   return (
-    <main className="view studio-view" hidden={!active}>
+    <main className="studio-view flex min-h-0 flex-1 flex-col" hidden={!active}>
       <StudioToolbar studio={studio} library={library} onOpenList={() => void openList()} />
       {s.following ? (
-        <div className="followbar">
+        <div className="followbar mx-4 mb-2 flex flex-wrap items-center gap-2.5 rounded-[10px] border border-[#5a4a2a] bg-[#241f15] px-3 py-2 text-[14px] text-[#f0d9ad]">
           <span>Following {s.following}&apos;s piano roll (read-only)</span>
-          <button type="button" onClick={() => studio.follow(null)}>
+          <button type="button" className="ml-auto" onClick={() => studio.follow(null)}>
             Back to my melody
           </button>
         </div>
       ) : null}
-      <div className="roll" ref={rollRef} />
-      <div className="studio-keys" hidden={s.keyboardHidden}>
-        <div className="kb-bar">
-          <OctaveControls controller={studio.keyboard} />
-          <span className="hint inline">
-            Play here (or <b>A W S E D…</b>) to hear notes · press <b className="rec-dot">●</b> to record them
-            into the melody
+      <div
+        className="roll relative mx-3 min-h-[110px] flex-1 overflow-auto overscroll-contain rounded-[10px] border border-line bg-[#1b1e23]"
+        ref={rollRef}
+      />
+      <div className="flex-none px-3 pt-2 pb-2.5 short:pt-1 short:pb-1.5" hidden={s.keyboardHidden}>
+        <div className="mb-1.5 flex flex-wrap items-center gap-3 short:mb-1">
+          <OctaveControls controller={studio.keyboard} compact />
+          <span className="text-[13px] text-muted very-narrow:hidden short:hidden">
+            Play here (or <b>A W S E D…</b>) to hear notes · press <b className="text-err">●</b> to record
+            them into the melody
           </span>
         </div>
-        <Keyboard controller={studio.keyboard} sounding={s.sounding} teacher={teacherNotes} />
+        <Keyboard controller={studio.keyboard} sounding={s.sounding} teacher={teacherNotes} compact />
       </div>
       <MelodiesDialog open={listOpen} onClose={() => setListOpen(false)} library={library} currentId={s.id} />
     </main>

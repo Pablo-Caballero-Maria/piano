@@ -1,6 +1,7 @@
 "use client";
 
 /** The top bar: the mode tabs, how the class link is doing, device sound, Class and the account. */
+import { BUTTON } from "@/components/ui/classes";
 import { Icon } from "@/components/ui/Icon";
 import { useStore } from "@/hooks/useStore";
 import { api, classState, sound } from "@/services";
@@ -20,12 +21,17 @@ export interface HeaderProps {
 
 export function Header({ mode, onModeChange, onOpenClass, onOpenAccount }: HeaderProps) {
   return (
-    <header>
-      <h1>ESP32 Piano</h1>
-      <nav className="tabs" role="tablist" aria-label="Mode">
+    <header className="flex flex-wrap items-center gap-2.5 px-4 py-2.5 short:px-3 short:py-1.5">
+      <h1 className="text-[18px] font-[650] whitespace-nowrap narrow:hidden">ESP32 Piano</h1>
+      <nav
+        className="flex rounded-[10px] border border-line bg-panel p-0.5 [&_svg]:size-4 [&_svg]:align-[-3px]"
+        role="tablist"
+        aria-label="Mode"
+      >
         {MODES.map((m) => (
           <button
             key={m.mode}
+            className="rounded-lg border-0 bg-transparent px-3 py-[7px] text-muted aria-selected:bg-[#2e333d] aria-selected:text-fg narrow:px-[9px]"
             role="tab"
             aria-selected={mode === m.mode}
             onClick={() => onModeChange(m.mode)}
@@ -50,9 +56,14 @@ export function ConnectionStatus() {
     text += board.online ? " · board online" : " · board offline";
   }
   const state = status.state === "on" ? "connected" : status.state === "connecting" ? "connecting" : "idle";
+  const dot = {
+    connected: "bg-accent shadow-[0_0_8px_var(--color-accent)]",
+    connecting: "animate-blink bg-warn",
+    idle: "bg-muted",
+  }[state];
   return (
-    <div className="status" data-state={state}>
-      <span className="dot" />
+    <div className="status mr-auto flex min-w-0 items-center gap-2 text-[14px] text-muted" data-state={state}>
+      <span className={`size-2.5 flex-none rounded-full ${dot}`} />
       <span>{text}</span>
     </div>
   );
@@ -63,7 +74,7 @@ function SoundToggle() {
   return (
     <button
       type="button"
-      className="icon"
+      className={BUTTON.icon}
       aria-pressed={on}
       aria-label="Device sound"
       title={
@@ -85,7 +96,11 @@ function ClassButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
-      className={live ? "primary class-btn live" : "primary class-btn"}
+      className={
+        live
+          ? `${BUTTON.primary} relative after:absolute after:top-1 after:right-1 after:size-2 after:rounded-full after:bg-teacher`
+          : BUTTON.primary
+      }
       title="The class: lesson, buzzer queue, students"
       disabled={!inClass && cls.where !== "online"}
       onClick={onClick}

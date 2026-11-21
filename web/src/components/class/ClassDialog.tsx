@@ -7,6 +7,7 @@
  */
 import { useEffect, useState } from "react";
 import { Modal, ModalHeader } from "@/components/dialogs/Modal";
+import { BUTTON, DIALOG_ROW_START, MUTED_P } from "@/components/ui/classes";
 import { Icon } from "@/components/ui/Icon";
 import { useStore } from "@/hooks/useStore";
 import { noteNames } from "@/lib/notes";
@@ -15,6 +16,12 @@ import type { PcStatus } from "@/services/api";
 import type { Mode, Person } from "@/services/link/messages";
 import { isLive, queuePosition, type ClassSnapshot } from "@/state/class-state";
 import { toast } from "@/state/toast";
+
+const HEADING = "mb-1.5 text-[14px] font-bold tracking-[0.04em] text-muted uppercase";
+/** A list of names with a button or two each. */
+const LIST = "mt-1.5 flex flex-col gap-1.5";
+const LIST_ITEM = "flex items-center gap-1.5 rounded-[10px] border border-line bg-[#191c21] px-2.5 py-1.5";
+const LIST_BUTTON = "px-2.5 py-1.5";
 
 export interface ClassDialogProps {
   open: boolean;
@@ -38,7 +45,7 @@ export function ClassDialog({ open, onClose, mode }: ClassDialogProps) {
   return (
     <Modal open={open} onClose={onClose} wide label="Class">
       <ModalHeader title="Class" onClose={onClose} />
-      <div className="dlg-body">
+      <div className="min-h-0 flex-1 overflow-auto [&_section+section]:mt-[18px]">
         {teacher ? <LessonSection cls={cls} me={me} mode={mode} /> : null}
         {!classroom && !teacher ? <LiveLessonsSection cls={cls} /> : null}
         {classroom ? <BuzzerSection cls={cls} me={me} teacher={teacher} /> : null}
@@ -53,16 +60,16 @@ function LessonSection({ cls, me, mode }: { cls: ClassSnapshot; me: string | nul
   const live = isLive(cls, me);
   return (
     <section>
-      <h3>Lesson</h3>
-      <p className="muted">
+      <h3 className={HEADING}>Lesson</h3>
+      <p className={MUTED_P}>
         {live
           ? `Everyone sees what you play${cls.lesson.mode === "studio" ? " and your piano roll" : ""}.`
           : `Students see what you play in ${mode} mode (switch mode first to change it).`}
       </p>
-      <div className="row start">
+      <div className={DIALOG_ROW_START}>
         <button
           type="button"
-          className={live ? "primary danger" : "primary"}
+          className={live ? BUTTON.primaryDanger : BUTTON.primary}
           onClick={() => classState.toggleLive(mode)}
         >
           {live ? "End the lesson" : "Start the lesson"}
@@ -75,16 +82,16 @@ function LessonSection({ cls, me, mode }: { cls: ClassSnapshot; me: string | nul
 function LiveLessonsSection({ cls }: { cls: ClassSnapshot }) {
   return (
     <section>
-      <h3>Live lessons</h3>
-      <ul className="plain-list">
+      <h3 className={HEADING}>Live lessons</h3>
+      <ul className={LIST}>
         {cls.teachers.map((t) => {
           const following = cls.following === t;
           return (
-            <li key={t}>
-              <span className="name">{t}</span>
+            <li key={t} className={LIST_ITEM}>
+              <span className="min-w-0 flex-1 truncate">{t}</span>
               <button
                 type="button"
-                className={following ? "" : "primary"}
+                className={following ? LIST_BUTTON : `${LIST_BUTTON} ${BUTTON.primary}`}
                 title={following ? "Stop following" : "Follow this lesson"}
                 onClick={() => void classState.follow(following ? null : t)}
               >
@@ -94,8 +101,8 @@ function LiveLessonsSection({ cls }: { cls: ClassSnapshot }) {
           );
         })}
       </ul>
-      {cls.teachers.length ? null : <p className="muted">No lesson is live right now.</p>}
-      <div className="row start">
+      {cls.teachers.length ? null : <p className={MUTED_P}>No lesson is live right now.</p>}
+      <div className={DIALOG_ROW_START}>
         <button type="button" onClick={() => classState.refreshLessons()}>
           Refresh
         </button>
@@ -117,18 +124,19 @@ function BuzzerSection({ cls, me, teacher }: { cls: ClassSnapshot; me: string | 
     pos === 0 && !b.live ? "Give up the buzzer" : pos > 0 ? "Leave the queue" : "Ask for the buzzer";
   return (
     <section>
-      <h3>Buzzer</h3>
-      <p className="muted">{now}</p>
-      <ul className="plain-list">
+      <h3 className={HEADING}>Buzzer</h3>
+      <p className={MUTED_P}>{now}</p>
+      <ul className={LIST}>
         {b.queue.map((name, i) => (
-          <li key={name}>
-            <span className="name">
+          <li key={name} className={LIST_ITEM}>
+            <span className="min-w-0 flex-1 truncate">
               {i + 1}. {name}
               {name === me ? " (you)" : ""}
             </span>
             {teacher && i > 0 ? (
               <button
                 type="button"
+                className={LIST_BUTTON}
                 title="Move up"
                 onClick={() => classState.queue("move", { user: name, to: i - 1 })}
               >
@@ -138,6 +146,7 @@ function BuzzerSection({ cls, me, teacher }: { cls: ClassSnapshot; me: string | 
             {teacher ? (
               <button
                 type="button"
+                className={LIST_BUTTON}
                 title="Remove from the queue"
                 aria-label={`Remove ${name} from the queue`}
                 onClick={() => classState.queue("remove", { user: name })}
@@ -148,10 +157,10 @@ function BuzzerSection({ cls, me, teacher }: { cls: ClassSnapshot; me: string | 
           </li>
         ))}
       </ul>
-      {b.queue.length ? null : <p className="muted">Nobody is waiting.</p>}
-      <div className="row start">
+      {b.queue.length ? null : <p className={MUTED_P}>Nobody is waiting.</p>}
+      <div className={DIALOG_ROW_START}>
         {teacher && live ? null : (
-          <button type="button" className="primary" onClick={() => classState.toggleBuzzerRequest()}>
+          <button type="button" className={BUTTON.primary} onClick={() => classState.toggleBuzzerRequest()}>
             {askLabel}
           </button>
         )}
@@ -182,24 +191,29 @@ function PeopleSection({ cls, me }: { cls: ClassSnapshot; me: string | null }) {
   const canHand = isLive(cls, me) && cls.where === "classroom";
   return (
     <section>
-      <h3>In class</h3>
-      <ul className="melody-list">
+      <h3 className={HEADING}>In class</h3>
+      <ul className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-auto">
         {others.map((p) => {
           const has = cls.buzzer.granted === p.name;
           return (
-            <li key={p.id}>
-              <div className="info">
-                <b>
+            <li
+              key={p.id}
+              className="flex items-center gap-1.5 rounded-[10px] border border-line bg-[#191c21] px-2.5 py-2"
+            >
+              <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+                <b className="truncate">
                   {p.name}
                   {p.role === "teacher" ? " (teacher)" : ""}
                   {p.remote ? " · from home" : ""}
                 </b>
-                <small>{describe(p)}</small>
+                <small className="text-[12px] text-muted">{describe(p)}</small>
               </div>
               {canHand && !p.remote && p.role !== "teacher" ? (
                 <button
                   type="button"
-                  className={has ? "" : "primary"}
+                  className={
+                    has ? "flex-none px-2.5 py-[7px]" : `flex-none px-2.5 py-[7px] ${BUTTON.primary}`
+                  }
                   title="Let this student play on the buzzer"
                   onClick={() => classState.queue(has ? "revoke" : "grant", { user: p.name })}
                 >
@@ -210,7 +224,7 @@ function PeopleSection({ cls, me }: { cls: ClassSnapshot; me: string | null }) {
           );
         })}
       </ul>
-      {others.length ? null : <p className="muted">Nobody else is connected.</p>}
+      {others.length ? null : <p className={MUTED_P}>Nobody else is connected.</p>}
     </section>
   );
 }
@@ -252,9 +266,11 @@ function PcSection() {
 
   return (
     <section>
-      <h3>Classroom PC</h3>
-      <pre className="pc-status">{text}</pre>
-      <div className="row start">
+      <h3 className={HEADING}>Classroom PC</h3>
+      <pre className="rounded-lg border border-line bg-[#191c21] px-2.5 py-2 text-[12px] whitespace-pre-wrap text-muted select-text">
+        {text}
+      </pre>
+      <div className={DIALOG_ROW_START}>
         <button type="button" onClick={() => void checkForUpdates()}>
           Check for updates
         </button>

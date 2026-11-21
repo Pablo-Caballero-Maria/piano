@@ -3,6 +3,7 @@
 /** "Melodies": mine and everyone's public ones, to open, play, copy or delete. */
 import { useEffect, useRef, useState } from "react";
 import { Modal, ModalHeader } from "@/components/dialogs/Modal";
+import { BUTTON, MUTED, MUTED_P, SEGMENTED } from "@/components/ui/classes";
 import { Icon } from "@/components/ui/Icon";
 import { useStore } from "@/hooks/useStore";
 import { formatTime, plural, timeAgo } from "@/lib/format";
@@ -20,6 +21,10 @@ export interface MelodiesDialogProps {
 
 type ListState =
   { status: "loading" } | { status: "error"; message: string } | { status: "ready"; items: MelodySummary[] };
+
+/** A row of the list, and its buttons. */
+const ROW = "flex items-center gap-1.5 rounded-[10px] px-2.5 py-2";
+const ROW_BUTTON = "flex-none px-2.5 py-[7px]";
 
 const EMPTY: Record<Scope, string> = {
   mine: "No melodies yet. Compose one in the Studio and press Save.",
@@ -66,17 +71,27 @@ export function MelodiesDialog({ open, onClose, library, currentId }: MelodiesDi
   return (
     <Modal open={open} onClose={onClose} wide label="Melodies">
       <ModalHeader title="Melodies" onClose={onClose} />
-      <div className="seg list-tabs">
-        <button type="button" aria-pressed={scope === "mine"} onClick={() => chooseScope("mine")}>
+      <div className={`${SEGMENTED.group} mb-2.5`}>
+        <button
+          type="button"
+          className={SEGMENTED.button}
+          aria-pressed={scope === "mine"}
+          onClick={() => chooseScope("mine")}
+        >
           Mine
         </button>
-        <button type="button" aria-pressed={scope === "public"} onClick={() => chooseScope("public")}>
+        <button
+          type="button"
+          className={SEGMENTED.button}
+          aria-pressed={scope === "public"}
+          onClick={() => chooseScope("public")}
+        >
           <Icon name="globe" /> Public
         </button>
       </div>
-      <ul className="melody-list">
-        {list.status === "loading" ? <li className="muted">Loading…</li> : null}
-        {list.status === "error" ? <li className="muted">{list.message}</li> : null}
+      <ul className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-auto">
+        {list.status === "loading" ? <li className={`${ROW} ${MUTED}`}>Loading…</li> : null}
+        {list.status === "error" ? <li className={`${ROW} ${MUTED}`}>{list.message}</li> : null}
         {list.status === "ready"
           ? list.items.map((m) => (
               <MelodyRow
@@ -92,8 +107,8 @@ export function MelodiesDialog({ open, onClose, library, currentId }: MelodiesDi
             ))
           : null}
       </ul>
-      {list.status === "ready" && !list.items.length ? <p className="muted">{EMPTY[scope]}</p> : null}
-      <p className="muted list-free">{where}</p>
+      {list.status === "ready" && !list.items.length ? <p className={MUTED_P}>{EMPTY[scope]}</p> : null}
+      <p className="mt-2.5 text-[12px] text-muted">{where}</p>
     </Modal>
   );
 }
@@ -118,18 +133,35 @@ export function describeMelody(m: MelodySummary, mine: boolean, now = Date.now()
 
 function MelodyRow({ melody: m, mine, current, onPlay, onOpen, onCopy, onDelete }: MelodyRowProps) {
   return (
-    <li className={current ? "current" : undefined}>
-      <div className="info">
-        <b>{m.name}</b>
-        <small>{describeMelody(m, mine)}</small>
+    <li className={`${ROW} border bg-[#191c21] ${current ? "border-accent" : "border-line"}`}>
+      <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+        <b className="truncate">{m.name}</b>
+        <small className="text-[12px] text-muted">{describeMelody(m, mine)}</small>
       </div>
-      <button type="button" title="Open and play" aria-label={`Play ${m.name}`} onClick={onPlay}>
+      <button
+        type="button"
+        className={ROW_BUTTON}
+        title="Open and play"
+        aria-label={`Play ${m.name}`}
+        onClick={onPlay}
+      >
         <Icon name="play" />
       </button>
-      <button type="button" className="primary" title="Open to edit" onClick={onOpen}>
+      <button
+        type="button"
+        className={`${ROW_BUTTON} ${BUTTON.primary}`}
+        title="Open to edit"
+        onClick={onOpen}
+      >
         Open
       </button>
-      <button type="button" title="Make my own copy" aria-label={`Copy ${m.name}`} onClick={onCopy}>
+      <button
+        type="button"
+        className={ROW_BUTTON}
+        title="Make my own copy"
+        aria-label={`Copy ${m.name}`}
+        onClick={onCopy}
+      >
         <Icon name="copy" />
       </button>
       {mine ? <DeleteButton name={m.name} onDelete={onDelete} /> : null}
@@ -155,7 +187,7 @@ function DeleteButton({ name, onDelete }: { name: string; onDelete: () => void }
   return (
     <button
       type="button"
-      className={armed ? "danger armed" : "danger"}
+      className={`${ROW_BUTTON} ${armed ? BUTTON.armed : BUTTON.danger}`}
       title="Delete"
       aria-label={`Delete ${name}`}
       onClick={click}

@@ -2,12 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { IconSprite } from "@/components/ui/Icon";
 import { VercelTelemetry } from "@/components/ui/VercelTelemetry";
-import "@/styles/base.css";
-import "@/styles/header.css";
-import "@/styles/keyboard.css";
-import "@/styles/studio.css";
-import "@/styles/dialogs.css";
-import "@/styles/small-screens.css";
+import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ESP32 Piano",
@@ -25,8 +20,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" className="h-full bg-bg text-fg">
+      <body className="h-full overflow-hidden bg-bg text-fg select-none [-webkit-touch-callout:none]">
         <IconSprite />
         {children}
         <VercelTelemetry />

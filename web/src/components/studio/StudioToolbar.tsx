@@ -1,6 +1,7 @@
 "use client";
 
 /** The studio's toolbar: the melody (name, save, open, public), transport, tempo, snap and editing tools. */
+import { BUTTON } from "@/components/ui/classes";
 import { Icon } from "@/components/ui/Icon";
 import { NowPlaying } from "@/components/piano/NowPlaying";
 import { useStore } from "@/hooks/useStore";
@@ -9,6 +10,11 @@ import { DEFAULT_NAME, SNAPS } from "@/studio/constants";
 import type { StudioEngine } from "@/studio/engine";
 import type { MelodyLibrary } from "@/studio/library";
 import { BpmField } from "./BpmField";
+
+/** A group of tools that stays together. */
+const GROUP = "flex flex-none items-center gap-1.5";
+/** A button's text next to its icon: on small screens the icon alone. */
+const LABEL = "small-screen:hidden";
 
 export interface StudioToolbarProps {
   studio: StudioEngine;
@@ -30,10 +36,10 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
       : "Private: only you see it";
 
   return (
-    <div className="toolbar">
-      <div className="group file">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 pb-2 small-screen:flex-nowrap small-screen:gap-x-3 small-screen:overflow-x-auto small-screen:[scrollbar-width:none] small-screen:[&::-webkit-scrollbar]:hidden">
+      <div className={GROUP}>
         <input
-          className="melody-name"
+          className="w-[15ch] font-semibold small-screen:w-[11ch]"
           maxLength={80}
           placeholder={DEFAULT_NAME}
           aria-label="Melody name"
@@ -42,7 +48,10 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
           readOnly={following}
           onChange={(e) => studio.setName(e.target.value)}
         />
-        <span className="save-state" data-state={s.dirty ? "dirty" : "saved"}>
+        <span
+          className={`save-state min-w-[7ch] text-[12px] ${s.dirty ? "text-warn" : "text-muted"}`}
+          data-state={s.dirty ? "dirty" : "saved"}
+        >
           {s.dirty ? "● Unsaved" : s.id ? "✓ Saved" : ""}
         </span>
         <button
@@ -55,11 +64,11 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
         </button>
         <button type="button" title="My melodies and everyone's public ones" onClick={onOpenList}>
           <Icon name="folder" />
-          <span className="lbl"> My melodies</span>
+          <span className={LABEL}> My melodies</span>
         </button>
         <button
           type="button"
-          className="icon"
+          className={BUTTON.icon}
           title={publicTitle}
           aria-label="Public or private"
           aria-pressed={s.isPublic}
@@ -70,20 +79,20 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
         </button>
         <button
           type="button"
-          className="primary"
+          className={BUTTON.primary}
           title="Save to my account (Ctrl+S)"
           disabled={saving || following}
           onClick={() => void library.save()}
         >
           <Icon name="save" />
-          <span className="lbl"> Save</span>
+          <span className={LABEL}> Save</span>
         </button>
       </div>
 
-      <div className="group transport">
+      <div className={GROUP}>
         <button
           type="button"
-          className="icon"
+          className={BUTTON.icon}
           title="Back to the start"
           aria-label="Back to the start"
           onClick={() => studio.seek(0)}
@@ -92,7 +101,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
         </button>
         <button
           type="button"
-          className="icon play"
+          className={`${BUTTON.icon} aria-pressed:bg-accent aria-pressed:text-[#06140d]`}
           title={s.playing ? "Stop (Space)" : "Play (Space)"}
           aria-label={s.playing ? "Stop" : "Play"}
           aria-pressed={s.playing}
@@ -102,7 +111,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
         </button>
         <button
           type="button"
-          className={s.recording ? "icon rec recording" : "icon rec"}
+          className={`${BUTTON.icon} text-[16px] ${s.recording ? "animate-[blink_0.8s_infinite_alternate] border-err bg-err text-white" : "text-err"}`}
           title="Record from the piano: notes you play are added"
           aria-label="Record"
           aria-pressed={s.recording}
@@ -113,7 +122,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
         </button>
         <button
           type="button"
-          className="icon"
+          className={BUTTON.icon}
           title="Loop"
           aria-label="Loop"
           aria-pressed={s.looping}
@@ -123,7 +132,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
         </button>
         <button
           type="button"
-          className="icon"
+          className={BUTTON.icon}
           title="Metronome (device speaker only)"
           aria-label="Metronome"
           aria-pressed={s.metronome}
@@ -133,11 +142,13 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
         </button>
       </div>
 
-      <span className="clock">{clock}</span>
+      <span className="min-w-[19ch] text-[13px] whitespace-pre text-muted tabular-nums small-screen:order-10">
+        {clock}
+      </span>
 
-      <div className="group">
+      <div className={GROUP}>
         <BpmField bpm={s.bpm} onCommit={(v) => studio.setBpm(v)} />
-        <label className="field">
+        <label className="flex items-center gap-1.5 text-[13px] text-muted">
           Snap{" "}
           <select value={String(s.snap)} onChange={(e) => studio.setSnap(Number(e.target.value))}>
             {SNAPS.map((o) => (
@@ -149,10 +160,10 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
         </label>
       </div>
 
-      <div className="group">
+      <div className={GROUP}>
         <button
           type="button"
-          className="icon"
+          className={BUTTON.icon}
           title="Draw: click to add a note, drag to move it, drag its right edge to resize. Right-click deletes."
           aria-label="Draw"
           aria-pressed={s.tool === "draw"}
@@ -162,7 +173,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
         </button>
         <button
           type="button"
-          className="icon"
+          className={BUTTON.icon}
           title="Erase: click or drag over notes to delete them"
           aria-label="Erase"
           aria-pressed={s.tool === "erase"}
@@ -172,7 +183,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
         </button>
         <button
           type="button"
-          className="icon"
+          className={BUTTON.icon}
           title="Undo (Ctrl+Z)"
           aria-label="Undo"
           disabled={!s.canUndo}
@@ -182,7 +193,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
         </button>
         <button
           type="button"
-          className="icon"
+          className={BUTTON.icon}
           title="Redo (Ctrl+Y)"
           aria-label="Redo"
           disabled={!s.canRedo}
@@ -192,7 +203,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
         </button>
         <button
           type="button"
-          className="icon"
+          className={BUTTON.icon}
           title="Zoom out (Ctrl+wheel)"
           aria-label="Zoom out"
           onClick={() => studio.zoom(1 / 1.25)}
@@ -201,7 +212,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
         </button>
         <button
           type="button"
-          className="icon"
+          className={BUTTON.icon}
           title="Zoom in (Ctrl+wheel)"
           aria-label="Zoom in"
           onClick={() => studio.zoom(1.25)}
@@ -210,7 +221,7 @@ export function StudioToolbar({ studio, library, onOpenList }: StudioToolbarProp
         </button>
         <button
           type="button"
-          className="icon"
+          className={BUTTON.icon}
           title="Show/hide the piano"
           aria-label="Show the piano"
           aria-pressed={!s.keyboardHidden}
