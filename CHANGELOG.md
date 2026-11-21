@@ -11,7 +11,7 @@ All notable changes to ESP32 Piano are documented here. The format follows
 ### Changed
 
 - The classroom privacy test also checks that neither telemetry library is loaded at all: on Vercel, their
-  scripts can be served from a same-origin path instead of \`/_vercel/…\`, which the test alone wouldn't catch.
+  scripts can be served from a same-origin path instead of `/_vercel/…`, which the previous check alone wouldn't catch.
 
 ## [1.1.0] - 2026-11-21
 
