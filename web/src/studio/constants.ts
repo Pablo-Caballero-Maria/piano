@@ -6,7 +6,7 @@ export const HIGH = 119;
 export const BEATS_PER_BAR = 4;
 /** The timeline is never shorter than this (and always 4 empty bars longer than the melody). */
 export const MIN_BARS = 16;
-/** Width of the piano-key column, px (also in piano-roll.css). */
+/** Width of the piano-key column, px (roll-view.ts hands it to the roll's styles as --keyw). */
 export const KEY_W = 64;
 /** Silence inserted when the same frequency is struck again, so it's heard as a new note. */
 export const GAP_SEC = 0.05;

@@ -19,6 +19,7 @@ phone**, in the classroom or at home.
 ![FastAPI](https://img.shields.io/badge/FastAPI-fog_node-009688?logo=fastapi&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)
 ![MongoDB Atlas](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)
 ![Ably](https://img.shields.io/badge/Ably-live_lessons-FF5416?logo=ably&logoColor=white)
 ![Vercel](https://img.shields.io/badge/Vercel-deployed-000000?logo=vercel)
@@ -140,7 +141,7 @@ frequency whose volume beats at their difference, and the buzzer plays that mean
 | `fog/` | the teacher's PC: `app.py` (FastAPI), `classroom.py` (live class), `buzzer_queue.py`, `board.py` (MQTT link), `sync_service.py`, `updater.py` (GitHub), `internet.py` (DuckDNS), `ably_bridge.py`, `simboard.py` (simulated board), `settings.py` (`.env`); `python -m fog` |
 | `esp32/` | the board's firmware: `main.py` (boot, rollback, update mode), `app.py`, `mqtt.py` (own MQTT client), `kv.py` (encrypted-blob store), `tone.py`, `config.py`, `updater.py`, `ota.py` |
 | `api/` | the Vercel function (`index.py`): the API on Atlas, Ably tokens, live lessons |
-| `web/` | the website: Next.js + TypeScript, built as a static export (`web/out`) that Vercel and the PC serve; `src/services/link` (class link: WebSocket or Ably), `src/state` (the class), `src/studio` (piano roll engine), `src/components` (React). See [web/README.md](web/README.md) |
+| `web/` | the website: Next.js + TypeScript + Tailwind CSS, built as a static export (`web/out`) that Vercel and the PC serve; `src/services/link` (class link: WebSocket or Ably), `src/state` (the class), `src/studio` (piano roll engine), `src/components` (React). See [web/README.md](web/README.md) |
 | `install.sh` | sets up a teacher's PC and its board from a fresh clone (asks what it needs) |
 | `deploy/` | nginx, Mosquitto, certbot (DuckDNS DNS challenge) and systemd setup: `sudo deploy/setup.sh` |
 | `tools/` | `board.py` (install the board over USB), `configure.py` (`.env` questions), `fake_board.py` (pretend board), `sim/` (lets the board's MicroPython code run on CPython) |
