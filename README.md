@@ -449,7 +449,7 @@ Use the metadata in [CITATION.cff](CITATION.cff) (GitHub's *Cite this repository
   author  = {Caballero María, Pablo},
   title   = {ESP32 Piano: piano lessons with an ESP32 buzzer, a fog node and live classes},
   year    = {2026},
-  version = {1.1.0},
+  version = {1.1.1},
   url     = {https://github.com/Pablo-Caballero-Maria/piano},
   license = {MIT}
 }

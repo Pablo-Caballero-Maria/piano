@@ -6,6 +6,13 @@ All notable changes to ESP32 Piano are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-21
+
+### Changed
+
+- The classroom privacy test also checks that neither telemetry library is loaded at all: on Vercel, their
+  scripts can be served from a same-origin path instead of \`/_vercel/…\`, which the test alone wouldn't catch.
+
 ## [1.1.0] - 2026-11-21
 
 ### Added
@@ -85,7 +92,8 @@ All notable changes to ESP32 Piano are documented here. The format follows
 
 - First version: a web piano that plays its notes on an ESP32 buzzer over Bluetooth.
 
-[Unreleased]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Pablo-Caballero-Maria/piano/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/Pablo-Caballero-Maria/piano/compare/v0.3.0...v0.4.0
