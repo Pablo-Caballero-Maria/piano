@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Modal, ModalHeader } from "@/components/dialogs/Modal";
 import { Copy, Globe, Play, Trash } from "lucide-react";
-import { BUTTON, ICON, MUTED, MUTED_P, SEGMENTED } from "@/components/ui/classes";
+import { button, ICON, MUTED, MUTED_P, SEGMENTED } from "@/components/ui/classes";
 import { useStore } from "@/hooks/useStore";
 import { formatTime, plural, timeAgo } from "@/lib/format";
 import type { MelodySummary } from "@/lib/melody";
@@ -22,9 +22,8 @@ export interface MelodiesDialogProps {
 type ListState =
   { status: "loading" } | { status: "error"; message: string } | { status: "ready"; items: MelodySummary[] };
 
-/** A row of the list, and its buttons. */
+/** A row of the list. */
 const ROW = "flex items-center gap-1.5 rounded-[10px] px-2.5 py-2";
-const ROW_BUTTON = "flex-none px-2.5 py-[7px]";
 
 const EMPTY: Record<Scope, string> = {
   mine: "No melodies yet. Compose one in the Studio and press Save.",
@@ -71,10 +70,10 @@ export function MelodiesDialog({ open, onClose, library, currentId }: MelodiesDi
   return (
     <Modal open={open} onClose={onClose} wide label="Melodies">
       <ModalHeader title="Melodies" onClose={onClose} />
-      <div className={`${SEGMENTED.group} mb-2.5`}>
+      <div className={`${SEGMENTED} mb-2.5`}>
         <button
           type="button"
-          className={SEGMENTED.button}
+          className={button("plain", "segment")}
           aria-pressed={scope === "mine"}
           onClick={() => chooseScope("mine")}
         >
@@ -82,7 +81,7 @@ export function MelodiesDialog({ open, onClose, library, currentId }: MelodiesDi
         </button>
         <button
           type="button"
-          className={SEGMENTED.button}
+          className={button("plain", "segment")}
           aria-pressed={scope === "public"}
           onClick={() => chooseScope("public")}
         >
@@ -140,24 +139,19 @@ function MelodyRow({ melody: m, mine, current, onPlay, onOpen, onCopy, onDelete 
       </div>
       <button
         type="button"
-        className={ROW_BUTTON}
+        className={button("plain", "row")}
         title="Open and play"
         aria-label={`Play ${m.name}`}
         onClick={onPlay}
       >
         <Play className={ICON} fill="currentColor" />
       </button>
-      <button
-        type="button"
-        className={`${ROW_BUTTON} ${BUTTON.primary}`}
-        title="Open to edit"
-        onClick={onOpen}
-      >
+      <button type="button" className={button("primary", "row")} title="Open to edit" onClick={onOpen}>
         Open
       </button>
       <button
         type="button"
-        className={ROW_BUTTON}
+        className={button("plain", "row")}
         title="Make my own copy"
         aria-label={`Copy ${m.name}`}
         onClick={onCopy}
@@ -187,7 +181,7 @@ function DeleteButton({ name, onDelete }: { name: string; onDelete: () => void }
   return (
     <button
       type="button"
-      className={`${ROW_BUTTON} ${armed ? BUTTON.armed : BUTTON.danger}`}
+      className={button(armed ? "armed" : "danger", "row")}
       title="Delete"
       aria-label={`Delete ${name}`}
       onClick={click}

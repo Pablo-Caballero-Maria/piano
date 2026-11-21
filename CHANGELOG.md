@@ -15,10 +15,10 @@ All notable changes to ESP32 Piano are documented here. The format follows
 
 ### Changed
 
-- The website is styled with **Tailwind CSS v4**: utility classes on the elements, and
-  `web/src/app/globals.css` for what they don't express (the theme, the buttons' and fields' defaults,
-  the keyframes, the piano roll's grid lines). It is compiled by `@tailwindcss/turbopack`, declared in
-  `next.config.ts` as in the other websites. The page looks the same: compared screenshot by screenshot
+- The website is styled with **Tailwind CSS v4** only: every style is a utility class on its element,
+  with no stylesheet of its own (`web/src/app/globals.css` just configures Tailwind: the theme and the
+  screen-size variants). It is compiled by `@tailwindcss/turbopack`, declared in `next.config.ts` as in
+  the other websites. The page looks the same: compared screenshot by screenshot
   on a desktop, a phone and a phone in landscape.
 - The website's icons are `lucide-react` (1.75.0, the version the other websites use) instead of its own
   SVG sprite; the play, stop, back-to-start and record icons stay filled.

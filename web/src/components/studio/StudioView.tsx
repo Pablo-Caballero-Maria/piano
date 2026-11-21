@@ -6,6 +6,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { Keyboard, OctaveControls } from "@/components/keyboard/Keyboard";
+import { button } from "@/components/ui/classes";
 import { useStore } from "@/hooks/useStore";
 import type { StudioEngine } from "@/studio/engine";
 import type { MelodyLibrary } from "@/studio/library";
@@ -43,7 +44,7 @@ export function StudioView({ studio, library, active, teacherNotes }: StudioView
       {s.following ? (
         <div className="followbar mx-4 mb-2 flex flex-wrap items-center gap-2.5 rounded-[10px] border border-[#5a4a2a] bg-[#241f15] px-3 py-2 text-[14px] text-[#f0d9ad]">
           <span>Following {s.following}&apos;s piano roll (read-only)</span>
-          <button type="button" className="ml-auto" onClick={() => studio.follow(null)}>
+          <button type="button" className={`${button()} ml-auto`} onClick={() => studio.follow(null)}>
             Back to my melody
           </button>
         </div>

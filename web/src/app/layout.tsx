@@ -19,7 +19,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="h-full bg-bg text-fg">
+    // leading-[normal] and the tap highlight: the browser's defaults, which Tailwind's reset changes
+    <html lang="en" className="h-full bg-bg leading-[normal] text-fg [-webkit-tap-highlight-color:revert]">
       <body className="h-full overflow-hidden bg-bg text-fg select-none [-webkit-touch-callout:none]">
         {children}
         <VercelTelemetry />

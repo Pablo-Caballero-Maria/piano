@@ -1,7 +1,7 @@
 /*
- * Tailwind CSS v4 (compiled by @tailwindcss/turbopack, see next.config.ts). The components style
- * themselves with utility classes; this file has what those don't express: the colours and fonts,
- * the screen sizes, the defaults of the form controls, the keyframes, and the piano roll's grids.
+ * Tailwind CSS v4, compiled by @tailwindcss/turbopack (next.config.ts). Only its configuration lives
+ * here: the theme (colours, fonts, the blinking animation) and the screen-size variants. Every style
+ * is a utility class on its element (the shared ones in components/ui/classes.ts).
  */
 @import "tailwindcss";
 
@@ -43,103 +43,4 @@
   @media (orientation: landscape), (pointer: fine) {
     @slot;
   }
-}
-
-@layer base {
-  /* Where Tailwind's reset differs from what the website always had: the browser's defaults. */
-  html {
-    line-height: normal;
-    -webkit-tap-highlight-color: revert;
-  }
-  ::placeholder {
-    color: revert;
-    opacity: revert;
-  }
-
-  /* Every button and field (the variants are utility classes: components/ui/classes.ts). */
-  button {
-    font: inherit;
-    font-size: 14px;
-    color: var(--color-fg);
-    background: var(--color-panel);
-    border: 1px solid var(--color-line);
-    border-radius: 10px;
-    padding: 8px 13px;
-    cursor: pointer;
-    touch-action: manipulation;
-    white-space: nowrap;
-  }
-  button:hover:not(:disabled) {
-    border-color: #4a505c;
-  }
-  button:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-  button[aria-pressed="true"] {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-  input,
-  select {
-    font: inherit;
-    font-size: 14px;
-    color: var(--color-fg);
-    background: var(--color-panel);
-    border: 1px solid var(--color-line);
-    border-radius: 8px;
-    padding: 7px 8px;
-    -webkit-user-select: text;
-    user-select: text;
-  }
-  input:focus,
-  select:focus,
-  button:focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 1px;
-  }
-}
-
-/*
- * The piano roll's backgrounds (studio/roll-view.ts). The engine sets --ppb (px per beat), --rowh
- * (px per row), --beats, --rows and --keyw on the roll; the lines are gradients sized from those,
- * so zooming doesn't touch each note.
- */
-@utility ruler-bg {
-  background:
-    linear-gradient(to right, #5a6170 1px, transparent 1px) 0 0 / calc(var(--ppb) * 4px) 100%,
-    linear-gradient(to right, #3b414c 1px, transparent 1px) 0 100% / calc(var(--ppb) * 1px) 7px repeat-x;
-}
-@utility roll-grid-bg {
-  --bar-line: #4b5260;
-  --beat-line: #323843;
-  --step-line: transparent; /* the 1/16 lines: shown when zoomed in (.fine) */
-  --row-line: rgba(0, 0, 0, 0.3);
-  --oct-line: #4b5260;
-  --w: #252930;
-  --b: #1d2025;
-  background:
-    linear-gradient(to right, var(--bar-line) 1px, transparent 1px) 0 0 / calc(var(--ppb) * 4px) 100%,
-    linear-gradient(to right, var(--beat-line) 1px, transparent 1px) 0 0 / calc(var(--ppb) * 1px) 100%,
-    linear-gradient(to right, var(--step-line) 1px, transparent 1px) 0 0 / calc(var(--ppb) * 0.25px) 100%,
-    linear-gradient(to bottom, transparent calc(100% - 1px), var(--oct-line) 0) 0 0 / 100%
-      calc(var(--rowh) * 12px),
-    linear-gradient(to bottom, transparent calc(100% - 1px), var(--row-line) 0) 0 0 / 100%
-      calc(var(--rowh) * 1px),
-    /* one octave of rows from the top: B A# A G# G F# F E D# D C# C (black keys darker) */
-      linear-gradient(
-        to bottom,
-        var(--w) 0 8.3333%,
-        var(--b) 8.3333% 16.6667%,
-        var(--w) 16.6667% 25%,
-        var(--b) 25% 33.3333%,
-        var(--w) 33.3333% 41.6667%,
-        var(--b) 41.6667% 50%,
-        var(--w) 50% 66.6667%,
-        var(--b) 66.6667% 75%,
-        var(--w) 75% 83.3333%,
-        var(--b) 83.3333% 91.6667%,
-        var(--w) 91.6667% 100%
-      )
-      0 0 / 100% calc(var(--rowh) * 12px);
 }

@@ -2,7 +2,7 @@
 
 /** The top bar: the mode tabs, how the class link is doing, device sound, Class and the account. */
 import { Music, Piano, User, Users, Volume2, VolumeX, type LucideIcon } from "lucide-react";
-import { BUTTON, ICON } from "@/components/ui/classes";
+import { button, ICON } from "@/components/ui/classes";
 import { useStore } from "@/hooks/useStore";
 import { api, classState, sound } from "@/services";
 import type { Mode } from "@/services/link/messages";
@@ -31,7 +31,7 @@ export function Header({ mode, onModeChange, onOpenClass, onOpenAccount }: Heade
         {MODES.map((m) => (
           <button
             key={m.mode}
-            className="rounded-lg border-0 bg-transparent px-3 py-[7px] text-muted aria-selected:bg-[#2e333d] aria-selected:text-fg narrow:px-[9px]"
+            className={button("tab", "tab")}
             role="tab"
             aria-selected={mode === m.mode}
             onClick={() => onModeChange(m.mode)}
@@ -74,7 +74,7 @@ function SoundToggle() {
   return (
     <button
       type="button"
-      className={BUTTON.icon}
+      className={button("plain", "icon")}
       aria-pressed={on}
       aria-label="Device sound"
       title={
@@ -98,8 +98,8 @@ function ClassButton({ onClick }: { onClick: () => void }) {
       type="button"
       className={
         live
-          ? `${BUTTON.primary} relative after:absolute after:top-1 after:right-1 after:size-2 after:rounded-full after:bg-teacher`
-          : BUTTON.primary
+          ? `${button("primary")} relative after:absolute after:top-1 after:right-1 after:size-2 after:rounded-full after:bg-teacher`
+          : button("primary")
       }
       title="The class: lesson, buzzer queue, students"
       disabled={!inClass && cls.where !== "online"}
@@ -115,6 +115,7 @@ function AccountButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
+      className={button()}
       title={user ? `Account (${user.role})` : "Log in or create an account"}
       onClick={onClick}
     >

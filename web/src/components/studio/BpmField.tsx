@@ -6,6 +6,7 @@
  * shows the tempo actually set (20-400).
  */
 import { useEffect, useEffectEvent, useRef } from "react";
+import { field } from "@/components/ui/classes";
 import { DEFAULT_BPM, MAX_BPM, MIN_BPM } from "@/studio/constants";
 
 export function BpmField({ bpm, onCommit }: { bpm: number; onCommit: (value: number) => number }) {
@@ -31,7 +32,7 @@ export function BpmField({ bpm, onCommit }: { bpm: number; onCommit: (value: num
       BPM{" "}
       <input
         ref={ref}
-        className="w-[6.5ch]"
+        className={`${field()} w-[6.5ch]`}
         type="number"
         min={MIN_BPM}
         max={MAX_BPM}

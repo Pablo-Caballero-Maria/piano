@@ -2,7 +2,7 @@
 
 /** The logged-in user: who they are, and Log out. */
 import { User as UserIcon } from "lucide-react";
-import { DIALOG_ROW, ICON, MUTED_P } from "@/components/ui/classes";
+import { button, DIALOG_ROW, ICON, MUTED_P } from "@/components/ui/classes";
 import { api, type User } from "@/services/api";
 import { toast } from "@/state/toast";
 import { Modal } from "./Modal";
@@ -33,10 +33,10 @@ export function UserDialog({
       </h2>
       <p className={MUTED_P}>{user ? ROLE_TEXT[user.role] : ""}</p>
       <div className={DIALOG_ROW}>
-        <button type="button" onClick={onClose}>
+        <button type="button" className={button()} onClick={onClose}>
           Close
         </button>
-        <button type="button" onClick={logout}>
+        <button type="button" className={button()} onClick={logout}>
           Log out
         </button>
       </div>

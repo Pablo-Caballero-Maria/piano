@@ -5,7 +5,7 @@
  * (state/dialogs.ts), which resolves once the user is logged in or gives up.
  */
 import { useState, type FormEvent } from "react";
-import { BUTTON, DIALOG_ROW, MUTED_P, SEGMENTED } from "@/components/ui/classes";
+import { button, DIALOG_ROW, field, MUTED_P, SEGMENTED } from "@/components/ui/classes";
 import { useStore } from "@/hooks/useStore";
 import { MIN_PASSWORD } from "@/lib/credentials";
 import { api, type Role } from "@/services/api";
@@ -16,7 +16,7 @@ import { Modal } from "./Modal";
 type Tab = "login" | "register";
 
 const LABEL = "my-3 flex flex-col gap-1.5 text-[13px] text-muted";
-const FIELD = "w-full text-[16px]";
+const FIELD = `${field(true)} w-full`;
 
 export function AuthDialog() {
   const request = useStore(authStore, null);
@@ -75,10 +75,10 @@ export function AuthDialog() {
         <h2 className="mb-3 text-[17px] font-bold">Your account</h2>
         {request?.reason ? <p className={MUTED_P}>{request.reason}</p> : null}
         <p className={MUTED_P}>Your account and melodies are kept on the classroom board and in the cloud.</p>
-        <div className={SEGMENTED.group}>
+        <div className={SEGMENTED}>
           <button
             type="button"
-            className={SEGMENTED.button}
+            className={button("plain", "segment")}
             aria-pressed={tab === "login"}
             onClick={() => chooseTab("login")}
           >
@@ -86,7 +86,7 @@ export function AuthDialog() {
           </button>
           <button
             type="button"
-            className={SEGMENTED.button}
+            className={button("plain", "segment")}
             aria-pressed={tab === "register"}
             onClick={() => chooseTab("register")}
           >
@@ -94,10 +94,10 @@ export function AuthDialog() {
           </button>
         </div>
         {tab === "register" ? (
-          <div className={`${SEGMENTED.group} mt-2.5`}>
+          <div className={`${SEGMENTED} mt-2.5`}>
             <button
               type="button"
-              className={SEGMENTED.button}
+              className={button("plain", "segment")}
               aria-pressed={role === "student"}
               onClick={() => setRole("student")}
             >
@@ -105,7 +105,7 @@ export function AuthDialog() {
             </button>
             <button
               type="button"
-              className={SEGMENTED.button}
+              className={button("plain", "segment")}
               aria-pressed={role === "teacher"}
               onClick={() => setRole("teacher")}
             >
@@ -145,10 +145,10 @@ export function AuthDialog() {
           {error}
         </p>
         <div className={DIALOG_ROW}>
-          <button type="button" onClick={close}>
+          <button type="button" className={button()} onClick={close}>
             Cancel
           </button>
-          <button type="submit" className={BUTTON.primary} disabled={busy}>
+          <button type="submit" className={button("primary")} disabled={busy}>
             {tab === "login" ? "Log in" : "Create account"}
           </button>
         </div>

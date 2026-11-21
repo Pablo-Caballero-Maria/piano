@@ -6,6 +6,7 @@
  * pointer events to it. As many white keys as fit its width are shown.
  */
 import { useEffect, useRef, type PointerEvent } from "react";
+import { button } from "@/components/ui/classes";
 import { useStore } from "@/hooks/useStore";
 import { type KeyboardController } from "@/lib/keyboard-controller";
 import { keyboardLayout, loadKeyboardLayout } from "@/lib/keyboard-layout";
@@ -164,12 +165,12 @@ export function OctaveControls({
   const first = whites[0]?.midi;
   const last = whites.at(-1)?.midi;
   const range = first && last ? `${noteName(first)}–${noteName(last)}` : `C${octave}`;
-  const button = `w-10 px-0 py-2 ${compact ? "short:py-1" : ""}`;
+  const octaveButton = `${button("plain", "octave")} ${compact ? "short:py-1" : ""}`;
   return (
     <div className="flex items-center gap-1.5">
       <button
         type="button"
-        className={button}
+        className={octaveButton}
         aria-label="Octave down"
         disabled={!controller.canShift(-1)}
         onClick={() => controller.shift(-1)}
@@ -179,7 +180,7 @@ export function OctaveControls({
       <span className="min-w-[8ch] text-center text-[14px] text-muted">{range}</span>
       <button
         type="button"
-        className={button}
+        className={octaveButton}
         aria-label="Octave up"
         disabled={!controller.canShift(1)}
         onClick={() => controller.shift(1)}
