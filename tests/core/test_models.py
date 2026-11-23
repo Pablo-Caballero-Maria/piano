@@ -1,9 +1,17 @@
 import pytest
 
-from pianocore.models import Invalid, Melody, check_key, check_melody, check_role, check_username
+from pianocore.models import (
+    AuthSession,
+    Invalid,
+    Melody,
+    check_melody,
+    check_password_hash,
+    check_role,
+    check_username,
+)
 
 
-def test_usernames_roles_and_keys():
+def test_usernames_roles_and_password_hashes():
     assert check_username("ana_1.x-y") == "ana_1.x-y"
     for bad in ("ab", "a" * 33, "bad name", "ñandú", None, 5):
         with pytest.raises(Invalid):
@@ -11,8 +19,16 @@ def test_usernames_roles_and_keys():
     assert check_role("teacher") == "teacher"
     with pytest.raises(Invalid):
         check_role("admin")
-    with pytest.raises(Invalid):
-        check_key("xyz")
+    assert check_password_hash("0" * 32, "f" * 64) == ("0" * 32, "f" * 64)
+    for salt, hash in [("xyz", "f" * 64), ("0" * 32, "F" * 64), ("0" * 32, None), (1, "f" * 64)]:
+        with pytest.raises(Invalid):
+            check_password_hash(salt, hash)
+
+
+def test_sessions_expire():
+    s = AuthSession(sid="s", id="i", token="t", uid="u", expires=1000, created=1, updated=1)
+    assert s.expired(now=1000) and not s.expired(now=999)
+    assert AuthSession.from_dict(s.to_dict()) == s
 
 
 def test_melody_validation():

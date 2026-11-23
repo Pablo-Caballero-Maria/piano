@@ -1,9 +1,10 @@
 """The REST API both servers expose (the teacher's PC and Vercel), on top of :class:`Service`.
 
+Signing up, in and out is Better Auth's, at ``/api/auth/*`` (web/server/auth; see
+:mod:`pianocore.auth`); these routes take its session token.
+
 ====================================  ================================================
-``POST /api/auth/register``           {username, role, key} → {token, user, notice}
-``POST /api/auth/login``              {username, key} → {token, user, notice}
-``GET  /api/auth/me``                 → {user}
+``GET  /api/me``                      → {user, notice} (the notice is shown once)
 ``GET  /api/melodies?scope=mine``     → {melodies: [summary…]} (``scope=public``: everyone's)
 ``GET  /api/melodies/{id}``           → {melody}
 ``POST /api/melodies``                {name, bpm, notes, length, public} → {melody}
@@ -11,7 +12,7 @@
 ``DELETE /api/melodies/{id}``         → {}
 ====================================  ================================================
 
-Requests other than sign-up and login carry ``Authorization: Bearer <token>``. Errors are
+Every request carries ``Authorization: Bearer <Better Auth's signed session token>``. Errors are
 ``{"error": message}`` with an HTTP status (400 invalid, 401 not logged in, 403, 404, 409 taken,
 503 board offline, 507 board full).
 """
@@ -24,7 +25,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends, FastAPI, Header, Request
 from fastapi.responses import JSONResponse
 
-from .auth import Session, read_token
+from .auth import Session, bearer
 from .models import Invalid
 from .service import Service, ServiceError
 
@@ -46,26 +47,17 @@ def make_router(get_service: Callable[..., Service]) -> APIRouter:
     router = APIRouter(prefix="/api")
     ServiceDep = Annotated[Service, Depends(get_service)]
 
-    def session(svc: ServiceDep, authorization: Annotated[str | None, Header()] = None) -> Session:
-        token = authorization.removeprefix("Bearer ").strip() if authorization else None
-        s = read_token(svc.keys, token)
+    async def session(svc: ServiceDep, authorization: Annotated[str | None, Header()] = None) -> Session:
+        s = await svc.sessions.read(bearer(authorization))
         if s is None:
             raise ServiceError(401, "Log in first")
         return s
 
     SessionDep = Annotated[Session, Depends(session)]
 
-    @router.post("/auth/register")
-    async def register(svc: ServiceDep, body: JSON) -> dict[str, Any]:
-        return await svc.register(body.get("username"), body.get("role"), body.get("key"))
-
-    @router.post("/auth/login")
-    async def login(svc: ServiceDep, body: JSON) -> dict[str, Any]:
-        return await svc.login(body.get("username"), body.get("key"))
-
-    @router.get("/auth/me")
+    @router.get("/me")
     async def me(svc: ServiceDep, s: SessionDep) -> dict[str, Any]:
-        return await svc.me(s)
+        return await svc.accounts.me(s.uid)
 
     @router.get("/melodies")
     async def list_melodies(svc: ServiceDep, s: SessionDep, scope: str = "mine") -> dict[str, Any]:

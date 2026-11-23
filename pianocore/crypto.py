@@ -6,9 +6,11 @@ is bound to it as associated data, so a blob copied under another key doesn't op
 teacher PCs and Vercel hold the system key (``PIANO_DATA_KEY``: 32 random bytes, base64); boards
 and Atlas only ever see ciphertext.
 
-Three independent keys are derived from it with HKDF-SHA256, one per purpose: record encryption,
-lookup ids (a keyed hash of the username, so stored keys don't reveal names), and session-token
-signatures.
+Independent keys are derived from it with HKDF-SHA256, one per purpose: record encryption,
+lookup ids (a keyed hash of the username, so stored keys don't reveal names), Better Auth's secret
+(it signs the session tokens) and the token of the internal accounts API that Better Auth's store
+calls (:mod:`pianocore.accounts_api`). The Better Auth server (web/server/auth/keys.ts) derives the
+last three the same way from the same system key.
 """
 
 from __future__ import annotations
@@ -31,6 +33,11 @@ class SealError(ValueError):
     """A blob that doesn't open: wrong key, wrong record key, or damaged."""
 
 
+def b64url(data: bytes) -> str:
+    """Base64url without padding (how Better Auth's secret and signatures are written)."""
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+
 def _derive(master: bytes, purpose: bytes) -> bytes:
     return HKDF(algorithm=hashes.SHA256(), length=32, salt=b"esp32-piano", info=purpose).derive(master)
 
@@ -48,7 +55,10 @@ class Keys:
             raise ValueError("The system key must be 32 bytes (base64 in PIANO_DATA_KEY)")
         self._aead = AESGCM(_derive(master, b"records"))
         self._ids = _derive(master, b"ids")
-        self.session = _derive(master, b"sessions")
+        # Better Auth's `secret` (it signs session tokens with HMAC-SHA256), as text
+        self.auth_secret = b64url(_derive(master, b"better-auth"))
+        # What Better Auth's store sends in X-Piano-Internal to the accounts API
+        self.internal_token = b64url(_derive(master, b"internal"))
 
     @classmethod
     def from_text(cls, text: str) -> Keys:

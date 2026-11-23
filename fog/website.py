@@ -15,7 +15,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from starlette.responses import Response
+from starlette.responses import PlainTextResponse, Response
 from starlette.staticfiles import StaticFiles
 from starlette.types import Scope
 
@@ -51,6 +51,12 @@ def is_built(repo: Path) -> bool:
     return (built_dir(repo) / "index.html").is_file()
 
 
+# The build's server code (Better Auth, run by fog.auth_server), not part of the site
+PRIVATE = "_server/"
+# The service worker lives at /serwist/sw.js but controls the whole site
+SERVICE_WORKER = "serwist/"
+
+
 class Site(StaticFiles):
     """The built website, with cache headers for phones on the classroom WiFi."""
 
@@ -58,8 +64,12 @@ class Site(StaticFiles):
         super().__init__(directory=directory, html=True)
 
     async def get_response(self, path: str, scope: Scope) -> Response:
+        if path.startswith(PRIVATE):
+            return PlainTextResponse("Not Found", status_code=404)
         response = await super().get_response(path, scope)
         response.headers["Cache-Control"] = IMMUTABLE if path.startswith("_next/static/") else REVALIDATE
+        if path.startswith(SERVICE_WORKER):
+            response.headers["Service-Worker-Allowed"] = "/"
         return response
 
 

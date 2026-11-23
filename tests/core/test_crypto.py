@@ -38,3 +38,11 @@ def test_system_key_text():
         Keys.from_text("not base64!")
     with pytest.raises(ValueError):
         Keys.from_text(base64.b64encode(b"short").decode())
+
+
+def test_better_auth_keys_match_the_node_side():
+    """The same values web/tests/server/keys.test.ts expects from web/server/auth/keys.ts."""
+    k = Keys(bytes(range(32)))
+    assert k.auth_secret == "izoa-iHnFSD2LvP15ok0Q_fnBYNvnhZ3tfwRBHW9P5s"
+    assert k.internal_token == "dH0OfKcF2pKGQzDXGCl8MC7CH8Y88cn9ANPTavJb8c0"
+    assert k.user_id("Ana") == "e8143115f7ea501aa876646c99350f6d"

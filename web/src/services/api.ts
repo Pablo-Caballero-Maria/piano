@@ -1,12 +1,15 @@
 /**
- * Accounts and melodies through the REST API (pianocore/api.py). The same page talks to the
- * teacher's PC in the classroom (data on the classroom board) or to Vercel online (data in
- * MongoDB Atlas); GET /api/config says which. The login session is kept in this browser.
+ * Accounts and melodies. Signing up, in and out goes through Better Auth (services/auth.ts); the
+ * melodies and the rest through the REST API (pianocore/api.py), with Better Auth's session token.
+ * The same page talks to the teacher's PC in the classroom (data on the classroom board) or to
+ * Vercel online (data in MongoDB Atlas); GET /api/config says which. The login session (the token
+ * and who it is) is kept in this browser.
  */
 import { checkCredentials, passwordKey } from "@/lib/credentials";
 import { decodeNotes, toPayload, type Melody, type MelodyDraft, type MelodySummary } from "@/lib/melody";
 import { readJSON, STORAGE_KEYS, writeJSON } from "@/lib/storage";
 import { Store } from "@/lib/store";
+import { authErrorMessage, createAccountsClient, emailOf, type AccountsClient } from "./auth";
 
 export type Role = "teacher" | "student";
 
@@ -54,6 +57,7 @@ function validSession(s: Session | null): Session | null {
 export class ApiClient {
   /** The logged-in session (null: logged out); components read it with useStore(). */
   readonly session: Store<Session | null>;
+  private readonly accounts: AccountsClient;
   private configPromise: Promise<ServerConfig> | null = null;
 
   constructor(
@@ -61,6 +65,7 @@ export class ApiClient {
     initial: Session | null = validSession(readJSON<Session>(STORAGE_KEYS.session)),
   ) {
     this.session = new Store(initial);
+    this.accounts = createAccountsClient(fetchFn);
   }
 
   /** How this page talks to its server (asked once). */
@@ -108,31 +113,70 @@ export class ApiClient {
 
   // ---- Accounts ------------------------------------------------------------------------------
 
+  /**
+   * Runs a Better Auth call and returns the session token it hands out; its errors become
+   * ApiErrors with a message for the user.
+   */
+  private async authenticate(
+    run: (onSuccess: (ctx: { response: Response }) => void) => Promise<{ error: unknown }>,
+  ): Promise<string> {
+    let token: string | null = null;
+    let result: { error: unknown };
+    try {
+      result = await run(({ response }) => (token = response.headers.get("set-auth-token")));
+    } catch {
+      throw new ApiError(authErrorMessage(0), 0);
+    }
+    const error = result.error as { status?: number; code?: string } | null;
+    if (error) throw new ApiError(authErrorMessage(error.status ?? 0, error.code), error.status ?? 0);
+    if (!token) throw new ApiError("The server didn't start a session", 500);
+    return token;
+  }
+
+  /** With Better Auth's token: who it is (and a notice for them), from the REST API. */
+  private async startSession(token: string): Promise<string> {
+    this.session.set({ token, user: { username: "", role: "student" } }); // so call() sends it
+    try {
+      const me = await this.get<{ user: User; notice?: string }>("/me");
+      this.setSession({ token, user: me.user });
+      return me.notice ?? "";
+    } catch (e) {
+      this.setSession(null);
+      throw e;
+    }
+  }
+
   /** Log in; returns a notice for the user ("" usually). */
   async login(username: string, password: string): Promise<string> {
     checkCredentials(username, password);
-    const r = await this.post<Session & { notice?: string }>("/auth/login", {
-      username,
-      key: await passwordKey(username, password),
-    });
-    this.setSession({ token: r.token, user: r.user });
-    return r.notice ?? "";
+    const key = await passwordKey(username, password);
+    const token = await this.authenticate((onSuccess) =>
+      this.accounts.signIn.username({ username, password: key }, { onSuccess }),
+    );
+    return this.startSession(token);
   }
 
   /** Create an account and log in; returns a notice for the user ("" usually). */
   async register(username: string, password: string, role: Role): Promise<string> {
     checkCredentials(username, password);
-    const r = await this.post<Session & { notice?: string }>("/auth/register", {
-      username,
-      role,
-      key: await passwordKey(username, password),
-    });
-    this.setSession({ token: r.token, user: r.user });
-    return r.notice ?? "";
+    const key = await passwordKey(username, password);
+    const token = await this.authenticate((onSuccess) =>
+      this.accounts.signUp.email(
+        { username, name: username, email: emailOf(username), password: key, role },
+        { onSuccess },
+      ),
+    );
+    return this.startSession(token);
   }
 
+  /** Log out here at once, and end the session on the server (if it's reachable). */
   logout(): void {
+    const token = this.token();
     this.setSession(null);
+    if (token)
+      void this.accounts
+        .signOut({ fetchOptions: { headers: { Authorization: `Bearer ${token}` } } })
+        .catch(() => {});
   }
 
   // ---- Melodies ------------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-"""Users and melodies, and the validation of what clients send.
+"""Users, melodies and sign-in sessions, and the validation of what clients send.
 
 A *user* is a teacher or a student. A *melody* belongs to its owner and is either private (only
 the owner sees it) or public (everyone sees and can edit it; only the owner can delete it or
@@ -6,6 +6,10 @@ change its visibility). Records are never removed outright: a deleted melody bec
 tombstone (``deleted=True``) so that the deletion reaches the other copies when they sync.
 
 Times are milliseconds since the epoch (``updated`` decides which copy wins in a sync).
+
+Accounts are Better Auth's (web/server/auth): its store keeps them here, through
+:mod:`pianocore.accounts_api`, as the same :class:`User` records as before, and its sessions as
+:class:`AuthSession` records.
 """
 
 from __future__ import annotations
@@ -17,7 +21,8 @@ from typing import Any, Self
 
 ROLES = ("teacher", "student")
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,32}$")
-KEY_RE = re.compile(r"^[0-9a-f]{64}$")
+SALT_RE = re.compile(r"^[0-9a-f]{32}$")
+HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 NOTE_RE = re.compile(r"^\d{1,3}:\d+(\.\d+)?:\d+(\.\d+)?$")
 MAX_NAME = 80
 MAX_NOTES_TEXT = 14000  # ~1000 notes: fits one value of the board's store once encrypted
@@ -49,8 +54,10 @@ class User(_Record):
     uid: str  # keyed hash of the lowercase username (crypto.Keys.user_id)
     username: str  # as typed at sign-up
     role: str  # "teacher" or "student"
-    salt: str  # hex
-    hash: str  # hex sha256(salt + password key): the password key itself is never stored
+    salt: str  # 32 hex digits
+    # 64 hex digits, sha256(salt + password key) — computed by Better Auth's password hasher
+    # (web/server/auth/password.ts); the password key itself is never stored
+    hash: str
     created: int
     updated: int
     pending: bool = False  # signed up while the PC was offline: not yet checked against Atlas
@@ -110,11 +117,29 @@ def check_role(role: Any) -> str:
     return role
 
 
-def check_key(key: Any) -> str:
-    """The browser never sends the password: it sends PBKDF2(password), 64 hex digits."""
-    if not isinstance(key, str) or not KEY_RE.match(key):
-        raise Invalid("Bad password key")
-    return key
+def check_password_hash(salt: Any, hash: Any) -> tuple[str, str]:
+    """A password hash from Better Auth's hasher: a 16-byte salt and a SHA-256, in hex."""
+    if not (isinstance(salt, str) and SALT_RE.match(salt) and isinstance(hash, str) and HASH_RE.match(hash)):
+        raise Invalid("Bad password hash")
+    return salt, hash
+
+
+@dataclass
+class AuthSession(_Record):
+    """A Better Auth sign-in session, kept by the server that created it (it isn't synced)."""
+
+    sid: str  # session_id(token): where it's stored (the token itself only inside the sealed record)
+    id: str  # Better Auth's id
+    token: str
+    uid: str
+    expires: int
+    created: int
+    updated: int
+    ip: str = ""
+    agent: str = ""
+
+    def expired(self, now: int | None = None) -> bool:
+        return self.expires <= (now if now is not None else now_ms())
 
 
 @dataclass

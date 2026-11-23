@@ -1,12 +1,11 @@
 import pytest
 
-from pianocore.auth import read_token
 from pianocore.models import now_ms
 from pianocore.repo import MemoryRepo
 from pianocore.service import Service
 from pianocore.sync import sync
+from tests.better_auth import KEY, KEY2, login, session_of, sign_in, sign_up
 
-KEY, KEY2 = "ab" * 32, "cd" * 32
 TUNE = {"name": "Tune", "bpm": 120, "notes": "60:0:1", "length": 1}
 
 
@@ -15,14 +14,6 @@ def world(keys):
     """A classroom board, Atlas, and the services on each side (the PC offline)."""
     board, atlas = MemoryRepo(), MemoryRepo()
     return board, atlas, Service(board, keys, upstream=lambda: None), Service(atlas, keys)
-
-
-async def login(svc, name, key=KEY, role="student"):
-    try:
-        reply = await svc.login(name, key)
-    except Exception:
-        reply = await svc.register(name, role, key)
-    return read_token(svc.keys, reply["token"])
 
 
 async def test_both_ways_newest_wins(world, keys):
@@ -77,7 +68,7 @@ async def test_public_melodies_of_other_classes_come_down_while_they_fit(world, 
 
 async def test_a_name_taken_while_offline_is_renamed(world, keys):
     board, atlas, here, cloud = world
-    await cloud.register("ana", "teacher", KEY2)  # someone in another class
+    await sign_up(cloud, "ana", "teacher", KEY2)  # someone in another class
     ana = await login(here, "ana")  # PC offline: pending
     m = await here.create_melody(ana, TUNE)
     report = await sync(board, atlas, keys)
@@ -85,11 +76,13 @@ async def test_a_name_taken_while_offline_is_renamed(world, keys):
     new_uid = keys.user_id("ana-2")
     assert board.melodies[m["id"]].owner == new_uid and atlas.melodies[m["id"]].owner_name == "ana-2"
     # The old name and password still log in, here and at home, and the user is told once
-    reply = await here.login("ana", KEY)
+    renamed = await session_of(here, await sign_in(here, "ana", KEY))
+    reply = await here.accounts.me(renamed.uid)
     assert reply["user"]["username"] == "ana-2" and "already taken" in reply["notice"]
-    assert (await here.login("ana", KEY))["notice"] == ""
-    assert (await cloud.login("ana", KEY))["user"]["username"] == "ana-2"
-    assert (await cloud.login("ana", KEY2))["user"]["username"] == "ana"  # the other person is untouched
+    assert (await here.accounts.me(renamed.uid))["notice"] == ""
+    assert (await session_of(cloud, await sign_in(cloud, "ana", KEY))).username == "ana-2"
+    # the other person is untouched
+    assert (await session_of(cloud, await sign_in(cloud, "ana", KEY2))).username == "ana"
 
 
 async def test_old_tombstones_are_purged_from_the_board(world, keys):

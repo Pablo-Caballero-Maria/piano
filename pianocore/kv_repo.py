@@ -10,6 +10,8 @@ the system key, which it doesn't have). Keys:
 ``p/<id>``                index: public melodies (empty value)
 ``a/<old uid>``           a renamed account: the new uid (sealed)
 ``x/<name>``              bookkeeping, e.g. the last sync (sealed)
+``s/<sid>``               a sign-in session (sealed; sid = hash of its token)
+``z/<uid>/<sid>``         index: the sessions of each account (empty value)
 ========================  ====================================================
 
 Index entries stay for tombstones, so a sync still finds deletions.
@@ -21,7 +23,7 @@ from collections.abc import Iterable
 from typing import Any, Protocol
 
 from .crypto import Keys
-from .models import Melody, User
+from .models import AuthSession, Melody, User
 from .repo import Repo, matches
 
 
@@ -145,6 +147,26 @@ class KVRepo(Repo):
 
     async def put_meta(self, name: str, value: dict[str, Any]) -> None:
         await self._put(f"x/{name}", value)
+
+    # ---- sessions
+    async def get_session(self, sid: str) -> AuthSession | None:
+        d = await self._get(f"s/{sid}")
+        return AuthSession.from_dict(d) if d else None
+
+    async def put_session(self, session: AuthSession) -> None:
+        await self._put(f"s/{session.sid}", session.to_dict())
+        await self.kv.put(f"z/{session.uid}/{session.sid}", b"")
+
+    async def delete_session(self, sid: str) -> None:
+        s = await self.get_session(sid)
+        await self.kv.delete(f"s/{sid}")
+        if s is not None:
+            await self.kv.delete(f"z/{s.uid}/{sid}")
+
+    async def sessions_of(self, uid: str) -> list[AuthSession]:
+        keys = [f"s/{k.rsplit('/', 1)[1]}" for k in await self.kv.keys(f"z/{uid}/")]
+        blobs = await self.kv.get_many(keys)
+        return [AuthSession.from_dict(self.keys.open(blobs[k], k)) for k in keys if k in blobs]
 
     async def free_bytes(self) -> int | None:
         return await self.kv.free()

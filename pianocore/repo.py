@@ -1,4 +1,4 @@
-"""Where users and melodies live: the interface every store implements.
+"""Where users, melodies and sign-in sessions live: the interface every store implements.
 
 Three implementations:
 
@@ -7,8 +7,9 @@ Three implementations:
 - :class:`pianocore.mongo_repo.MongoRepo` — MongoDB Atlas (Vercel, and the PC when it syncs).
 
 Repositories store records as they are given (``updated`` included); the rules (who may do what,
-timestamps) live in :mod:`pianocore.service`. Lookups by default skip tombstones; the sync asks for
-them with ``with_deleted=True``.
+timestamps) live in :mod:`pianocore.service` and :mod:`pianocore.accounts`. Lookups by default
+skip tombstones; the sync asks for them with ``with_deleted=True``. Sessions belong to the store of
+the server that created them: the sync never copies them.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from typing import Any
 
-from .models import Melody, User
+from .models import AuthSession, Melody, User
 
 
 class Repo(ABC):
@@ -82,6 +83,19 @@ class Repo(ABC):
     @abstractmethod
     async def put_meta(self, name: str, value: dict[str, Any]) -> None: ...
 
+    @abstractmethod
+    async def get_session(self, sid: str) -> AuthSession | None: ...
+
+    @abstractmethod
+    async def put_session(self, session: AuthSession) -> None: ...
+
+    @abstractmethod
+    async def delete_session(self, sid: str) -> None: ...
+
+    @abstractmethod
+    async def sessions_of(self, uid: str) -> list[AuthSession]:
+        """Every session of an account (expired ones included)."""
+
     async def free_bytes(self) -> int | None:
         """Space left, for stores that can fill up (a board's flash); None if unlimited."""
         return None
@@ -102,6 +116,7 @@ class MemoryRepo(Repo):
         self.melodies: dict[str, Melody] = {}
         self.aliases: dict[str, str] = {}
         self.meta: dict[str, dict[str, Any]] = {}
+        self.sessions: dict[str, AuthSession] = {}
         self.capacity: int | None = None  # set in tests to act like a full board
 
     async def get_user(self, uid: str) -> User | None:
@@ -148,6 +163,19 @@ class MemoryRepo(Repo):
 
     async def put_meta(self, name: str, value: dict[str, Any]) -> None:
         self.meta[name] = dict(value)
+
+    async def get_session(self, sid: str) -> AuthSession | None:
+        s = self.sessions.get(sid)
+        return AuthSession.from_dict(s.to_dict()) if s else None
+
+    async def put_session(self, session: AuthSession) -> None:
+        self.sessions[session.sid] = AuthSession.from_dict(session.to_dict())
+
+    async def delete_session(self, sid: str) -> None:
+        self.sessions.pop(sid, None)
+
+    async def sessions_of(self, uid: str) -> list[AuthSession]:
+        return [AuthSession.from_dict(s.to_dict()) for s in self.sessions.values() if s.uid == uid]
 
     async def free_bytes(self) -> int | None:
         return self.capacity

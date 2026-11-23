@@ -1,6 +1,6 @@
 """The same behaviour from every repository (memory, board key/value; Atlas in test_mongo.py)."""
 
-from pianocore.models import Melody, User
+from pianocore.models import AuthSession, Melody, User
 
 
 def user(uid="u1", name="ana", updated=1, **kw) -> User:
@@ -65,6 +65,24 @@ async def check_repo_contract(repo):
     await repo.put_meta("sync", {"since": 5})
     assert await repo.get_meta("sync") == {"since": 5}
 
+    s1, s2 = session("1" * 32, "u1"), session("2" * 32, "u1")
+    assert await repo.get_session(s1.sid) is None
+    await repo.put_session(s1)
+    await repo.put_session(s2)
+    await repo.put_session(session("3" * 32, "u2"))
+    assert (await repo.get_session(s1.sid)).token == s1.token
+    assert sorted(s.sid for s in await repo.sessions_of("u1")) == [s1.sid, s2.sid]
+    await repo.delete_session(s1.sid)
+    assert await repo.get_session(s1.sid) is None
+    assert [s.sid for s in await repo.sessions_of("u1")] == [s2.sid]
+    await repo.delete_session("9" * 32)  # nothing there: no error
+
+
+def session(sid: str, uid: str) -> AuthSession:
+    return AuthSession(
+        sid=sid, id="id" + sid[:4], token="tok" + sid, uid=uid, expires=10**13, created=1, updated=1
+    )
+
 
 async def test_repo_contract(repo):
     await check_repo_contract(repo)
@@ -77,5 +95,7 @@ async def test_board_store_holds_only_ciphertext(keys):
     repo = KVRepo(kv, keys)
     await repo.put_user(user(name="secretname"))
     await repo.put_melody(melody("a" * 32))
-    assert all(b"secretname" not in v and b"60:0:1" not in v for v in kv.data.values())
+    await repo.put_session(session("1" * 32, "u1"))
+    assert all(b"secretname" not in v and b"60:0:1" not in v and b"tok" not in v for v in kv.data.values())
+    assert not any("tok" in k for k in kv.data)  # session keys don't reveal tokens
     assert await repo.free_bytes() < kv.capacity

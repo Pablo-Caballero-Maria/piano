@@ -9,8 +9,7 @@ from fog.app import Fog, create_app
 from fog.settings import REPO_DIR, Settings
 from fog.simboard import SimulatedBoard as LoopbackBoard
 from pianocore.crypto import new_system_key
-
-KEY = "ab" * 32
+from tests.better_auth import http_sign_up
 
 
 @pytest.fixture
@@ -24,14 +23,14 @@ def setup(tmp_path):
 
 
 def account(client, name, role="student"):
-    r = client.post("/api/auth/register", json={"username": name, "role": role, "key": KEY})
-    assert r.status_code == 200, r.text
-    return r.json()["token"]
+    """Sign up the way Better Auth does: through the accounts API, and a signed session token."""
+    return http_sign_up(client, client.app.state.fog.keys, name, role)
 
 
 def test_accounts_and_melodies_live_on_the_board(setup):
     client, _fog, board = setup
     token = account(client, "ana", "teacher")
+    assert any(k.startswith(b"s/") for k in board.store.db.keys())  # noqa: SIM118  (a btree)
     auth = {"Authorization": "Bearer " + token}
     r = client.post(
         "/api/melodies", headers=auth, json={"name": "Ode", "bpm": 100, "notes": "64:0:1", "public": True}
@@ -67,6 +66,17 @@ def test_the_class_over_websockets(setup):
         t.send_json({"t": "note", "freq": 440, "midi": [69]})
         assert s.receive_json() == {"t": "teacher.note", "freq": 440, "midi": [69]}
     assert 440 in board.tones
+
+
+def test_better_auth_is_reached_through_this_app(setup):
+    client, _, _ = setup  # tests build the app without Better Auth's Node server
+    r = client.post("/api/auth/sign-in/username", json={"username": "ana", "password": "x"})
+    assert r.status_code == 503 and "starting" in r.json()["error"]
+
+
+def test_the_build_s_server_code_isn_t_served(setup):
+    client, _, _ = setup
+    assert client.get("/_server/auth.mjs").status_code == 404
 
 
 def test_a_websocket_without_login_is_refused(setup):

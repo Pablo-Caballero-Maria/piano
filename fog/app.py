@@ -7,6 +7,8 @@ Routes (besides the shared REST API of :mod:`pianocore.api`, whose data lives on
 ``GET  /api/status``               (teacher) board, internet, sync and update status
 ``POST /api/update``               (teacher) check GitHub for a new version now
 ``WS   /ws``                       the live class (:mod:`fog.classroom`)
+``/api/auth/*``                    Better Auth: sign up, in and out (:mod:`fog.auth_server`)
+``POST /internal/accounts/*``      its store (:mod:`pianocore.accounts_api`; internal token only)
 ``GET  /board/<sha>/manifest.json``  the board's files in that commit (git hashes, sizes)
 ``GET  /board/<sha>/<path>``       one of them (the board downloads its updates here)
 ``/``                              the website: web/'s static build (:mod:`fog.website`)
@@ -28,11 +30,12 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
+from pianocore.accounts_api import make_accounts_router
 from pianocore.api import install_error_handlers, make_router
-from pianocore.auth import Session, read_token
+from pianocore.auth import Session, bearer
 from pianocore.crypto import Keys
 from pianocore.kv_repo import KVRepo
 from pianocore.mongo_repo import MongoRepo
@@ -40,6 +43,7 @@ from pianocore.repo import Repo
 from pianocore.service import Service, ServiceError
 
 from .ably_bridge import AblyBridge
+from .auth_server import NOT_READY, AuthServer
 from .board import BoardLink
 from .classroom import Classroom
 from .internet import DuckDNS, Internet
@@ -67,11 +71,19 @@ class Fog:
     updater: Updater
     bridge: AblyBridge | None = None
     duckdns: DuckDNS | None = None
+    auth: AuthServer | None = None
     tasks: list[asyncio.Task[Any]] = field(default_factory=list)
     skip: set[str] = field(default_factory=set)  # background parts not to start ("board", "updater"…)
 
     @classmethod
-    def build(cls, settings: Settings, atlas: Repo | None = None, board: BoardLink | None = None) -> "Fog":
+    def build(
+        cls,
+        settings: Settings,
+        atlas: Repo | None = None,
+        board: BoardLink | None = None,
+        auth: bool = False,
+    ) -> "Fog":
+        """auth: also run Better Auth's Node server (serve and demo; tests use their own)."""
         keys = Keys.from_text(settings.data_key)
         board = board or BoardLink(settings.board_id)
         internet = Internet()
@@ -86,7 +98,11 @@ class Fog:
             every_s=settings.sync_every_s,
         )
         service = Service(
-            board_repo, keys, upstream=lambda: atlas if internet.online else None, on_change=sync.poke
+            board_repo,
+            keys,
+            upstream=lambda: atlas if internet.online else None,
+            on_change=sync.poke,
+            session_ttl_s=60,  # the live class keeps working if the board drops out for a moment
         )
         bridge = (
             AblyBridge(settings.ably_api_key, online=lambda: internet.online)
@@ -107,7 +123,30 @@ class Fog:
             if settings.duckdns_domain and settings.duckdns_token
             else None
         )
-        fog = cls(settings, keys, board, internet, atlas, service, sync, classroom, updater, bridge, duckdns)
+        auth_server = (
+            AuthServer(
+                settings.repo_dir,
+                data_key=settings.data_key,
+                accounts_url=f"http://127.0.0.1:{settings.port}/internal/accounts",
+                public_url=settings.public_url,
+            )
+            if auth
+            else None
+        )
+        fog = cls(
+            settings,
+            keys,
+            board,
+            internet,
+            atlas,
+            service,
+            sync,
+            classroom,
+            updater,
+            bridge,
+            duckdns,
+            auth_server,
+        )
 
         async def on_board_status(status: dict[str, Any]) -> None:
             await classroom.board_changed()
@@ -147,22 +186,33 @@ def board_summary(board: BoardLink) -> dict[str, Any]:
 
 def create_app(settings: Settings | None = None, fog: Fog | None = None, background: bool = True) -> FastAPI:
     settings = settings or Settings.load()
-    fog = fog or Fog.build(settings)
+    fog = fog or Fog.build(settings, auth=True)
 
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        if fog.auth:
+            fog.auth.start()
         if background:
             fog.start()
         yield
         await fog.stop()
+        if fog.auth:
+            await fog.auth.stop()
 
     app = FastAPI(title="Piano class (teacher's PC)", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.fog = fog
     install_error_handlers(app)
     app.include_router(make_router(lambda: fog.service))
+    app.include_router(make_accounts_router("/internal/accounts", lambda: fog.service))
 
-    def teacher(authorization: Annotated[str | None, Header()] = None) -> Session:
-        s = read_token(fog.keys, authorization.removeprefix("Bearer ").strip() if authorization else None)
+    @app.api_route("/api/auth/{path:path}", methods=["GET", "POST"])
+    async def better_auth(request: Request) -> Response:
+        if fog.auth is None:
+            return JSONResponse({"error": NOT_READY}, status_code=503)
+        return await fog.auth.forward(request)
+
+    async def teacher(authorization: Annotated[str | None, Header()] = None) -> Session:
+        s = await fog.service.sessions.read(bearer(authorization))
         if s is None:
             raise ServiceError(401, "Log in first")
         if not s.is_teacher:
@@ -198,7 +248,8 @@ def create_app(settings: Settings | None = None, fog: Fog | None = None, backgro
         except Exception:
             await websocket.close(4400)
             return
-        session = read_token(fog.keys, hello.get("token") if isinstance(hello, dict) else None)
+        token = hello.get("token") if isinstance(hello, dict) else None
+        session = await fog.service.sessions.read(token if isinstance(token, str) else None)
         if session is None:
             await websocket.send_json({"t": "error", "message": "Log in to join the class"})
             await websocket.close(4401)

@@ -13,7 +13,9 @@ export default defineConfig({
     restoreMocks: true,
     coverage: {
       provider: "v8",
-      include: ["src/**/*.{ts,tsx}"],
+      // the page, and Better Auth's server (server/auth: its entry points only start it)
+      include: ["src/**/*.{ts,tsx}", "server/**/*.ts"],
+      exclude: ["server/auth/server.ts"],
       reporter: ["text-summary", "json-summary", "lcov", "html"],
     },
   },

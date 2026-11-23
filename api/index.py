@@ -1,7 +1,9 @@
 """The Vercel serverless API (https://piano-web-virid.vercel.app/api/…), for every class.
 
-The same REST API as the teacher's PC (:mod:`pianocore.api`), on MongoDB Atlas, plus what online
-lessons need (Ably, see :mod:`pianocore.ably`):
+The same REST API as the teacher's PC (:mod:`pianocore.api`), on MongoDB Atlas, the accounts API
+of Better Auth's store (:mod:`pianocore.accounts_api`, at ``/api/internal/accounts``: Better Auth
+itself is the Node function api/auth.ts, at ``/api/auth/*``), plus what online lessons need
+(Ably, see :mod:`pianocore.ably`):
 
 ==========================  ====================================================================
 ``GET  /api/config``        {mode: "online", realtime: "ably"}: how pages talk to us
@@ -23,8 +25,9 @@ from fastapi import Depends, FastAPI, Header, Request
 from fastapi.responses import JSONResponse
 
 from pianocore import ably
+from pianocore.accounts_api import make_accounts_router
 from pianocore.api import install_error_handlers, make_router
-from pianocore.auth import Session, read_token
+from pianocore.auth import Session, bearer
 from pianocore.crypto import Keys
 from pianocore.mongo_repo import MongoRepo
 from pianocore.service import Service, ServiceError
@@ -70,16 +73,17 @@ async def service() -> Service:
     return _cache["service"]
 
 
-def session(
+async def session(
     svc: Annotated[Service, Depends(service)], authorization: Annotated[str | None, Header()] = None
 ) -> Session:
-    s = read_token(svc.keys, authorization.removeprefix("Bearer ").strip() if authorization else None)
+    s = await svc.sessions.read(bearer(authorization))
     if s is None:
         raise ServiceError(401, "Log in first")
     return s
 
 
 app.include_router(make_router(service))
+app.include_router(make_accounts_router("/api/internal/accounts", service))
 
 
 @app.get("/api/config")

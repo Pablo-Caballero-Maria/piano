@@ -114,9 +114,10 @@ def demo(cloud: bool = False, port: int = 8080, fresh: bool = False) -> None:
         if not key_file.exists():
             key_file.write_text(new_system_key())
         settings = Settings(data_key=key_file.read_text().strip(), auto_update=False, public_url=url)
+    settings = replace(settings, port=port)  # Better Auth's store is this app, on this port
     log = logging.getLogger("demo")
     board = SimulatedBoard(folder, on_tone=lambda f: log.info("Buzzer: %s", f"{f} Hz" if f else "silence"))
-    fog = Fog.build(settings, board=board.link)
+    fog = Fog.build(settings, board=board.link, auth=True)
     fog.skip = {"board", "updater", "duckdns"}  # the board is simulated; nothing updates
     where = " (cloud: Atlas sync, Ably relay)" if cloud else ""
     print(f"Demo{where}: open {url} (the board is simulated; Ctrl-C to stop)")
