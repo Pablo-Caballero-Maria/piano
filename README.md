@@ -641,8 +641,14 @@ user said the Claude in Chrome extension may be used to set up Ably and Vercel's
    Better Auth's signed tokens itself. Also: typed MongoDB documents in `pianocore/mongo_repo.py`, a light
    theme (now the default) next to the dark one, a service worker so the page opens offline, and skeletons.
    Found while testing: Vercel compiles `api/auth.ts` to CommonJS and `web/server` as ES modules, so the
-   imports need their `.js` extensions; Better Auth looks a row up with `findMany` before deleting it, which
-   the adapter now answers.
+   imports need their `.js` extensions and the handler is loaded with `import()` (Vercel's runtime can't
+   `require()` an ES module, unlike Node 24); preview URLs start with `piano-`; Better Auth looks a row up
+   with `findMany` before deleting it, which the adapter now answers. Verified on a Vercel preview (same Atlas
+   as production) with `vercel curl`: sign-up, `/api/me`, a wrong password (401), sign-in in another case,
+   melodies, an Ably token and sign-out; the service worker is served with `Service-Worker-Allowed: /`. That
+   left a test account in the production Atlas: `prueba-ba` (its password key wasn't kept). The old
+   updater's commands (pytest, `npm ci`, `npm test`, `npm run build`) passed on a fresh worktree of the commit,
+   and its Better Auth bundle ran with uv's Node.
 
 ### Not verified yet
 - `./install.sh` on Debian/Ubuntu or Fedora; its "join at boot" and lid options (not used: the
@@ -651,5 +657,4 @@ user said the Claude in Chrome extension may be used to set up Ably and Vercel's
 - The board's clock from the PC's Date header (a classroom without internet).
 - A real update of a teacher PC to a new version through the service (its commands were run by
   hand on a fresh worktree, see History 7 and 9).
-- Better Auth on a real teacher PC under systemd (the service's `uv run` → `uv run --group web node`), and
-  sign-up/sign-in on the production Vercel site after the deploy of 2026-11-22.
+- Better Auth on a real teacher PC under systemd (the service's `uv run` → `uv run --group web node`).
