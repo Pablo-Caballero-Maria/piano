@@ -47,7 +47,8 @@ function getAuth(): PianoAuth {
       internalToken: keys.internalToken,
       headers: () => incoming.getStore()?.headers ?? {},
     }),
-    allowedHosts: ["piano-web-virid.vercel.app", "piano-web-*.vercel.app", "localhost:*"],
+    // The production domain, and the deployment and branch URLs Vercel gives previews (piano-…)
+    allowedHosts: ["piano-web-virid.vercel.app", "piano-*.vercel.app", "localhost:*"],
   });
   return auth;
 }
