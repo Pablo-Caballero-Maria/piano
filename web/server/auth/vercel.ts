@@ -5,8 +5,8 @@
  *
  * Environment (Vercel's settings): PIANO_DATA_KEY, the same system key as the Python function and
  * the teacher PCs. Preview deployments are behind Vercel's protection: the internal calls carry the
- * request's own pass (its _vercel_jwt cookie or bypass header), or VERCEL_AUTOMATION_BYPASS_SECRET
- * when the project has one.
+ * request's own pass (its _vercel_jwt cookie, a bypass header or a trusted-source token, as `vercel
+ * curl` sends), or VERCEL_AUTOMATION_BYPASS_SECRET when the project has one.
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createPianoAuth, type PianoAuth } from "./auth.js";
@@ -30,6 +30,8 @@ export function protectionHeaders(request: Request): Record<string, string> {
   const bypass =
     request.headers.get("x-vercel-protection-bypass") ?? process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
   if (bypass) headers["x-vercel-protection-bypass"] = bypass;
+  const trusted = request.headers.get("x-vercel-trusted-oidc-idp-token");
+  if (trusted) headers["x-vercel-trusted-oidc-idp-token"] = trusted;
   return headers;
 }
 

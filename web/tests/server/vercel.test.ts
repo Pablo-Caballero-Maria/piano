@@ -18,6 +18,10 @@ describe("Better Auth on Vercel", () => {
       "x-vercel-protection-bypass": "s3cret",
     });
     expect(protectionHeaders(new Request("https://piano-web-virid.vercel.app/"))).toEqual({});
+    const viaCli = new Request("https://piano-web-git-x.vercel.app/", {
+      headers: { "x-vercel-trusted-oidc-idp-token": "oidc" },
+    });
+    expect(protectionHeaders(viaCli)).toEqual({ "x-vercel-trusted-oidc-idp-token": "oidc" });
   });
 
   it("asks the accounts API of the host the request came to, with the request's pass", async () => {
