@@ -6,8 +6,34 @@ All notable changes to ESP32 Piano are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-22
+
 ### Added
 
+- **Accounts with [Better Auth](https://www.better-auth.com)**, on both servers, keeping piano's design. Better
+  Auth (`web/server/auth/`) runs as a Node.js process next to the teacher's PC app — which starts it with uv's
+  Node, restarts it if it stops and forwards `/api/auth/*` to it (`fog/auth_server.py`) — and as the Vercel
+  function `api/auth.ts`. Its custom adapter keeps users, credentials and sessions through a new internal
+  accounts API (`pianocore/accounts_api.py`, `pianocore/accounts.py`), so they stay sealed on the board or in
+  Atlas with the same rules: unique usernames system-wide, pending accounts confirmed by the sync, people from
+  other classes joining this one, and renamed accounts that keep signing in with their old name (the password
+  picks the account). Better Auth's secret and the API's token are derived from the system key on both sides:
+  no new setting. Existing accounts keep their password (the hash is the same); open sessions end once.
+- Sessions are Better Auth's (30 days, renewed daily), stored by the server that made them: on the board for
+  the PC, in Atlas's `sessions` collection (TTL index) for Vercel. The REST API and the live class check its
+  signed token themselves (`pianocore/auth.py`). Better Auth limits sign-in attempts per phone; the PC passes on
+  each phone's real address.
+- **The page opens offline**: a Serwist service worker (`web/src/sw/`, `out/serwist/sw.js`, served with
+  `Service-Worker-Allowed: /` by the PC and Vercel) precaches the build and keeps the page, so a phone that drops
+  off the classroom WiFi can still play the piano and the Studio on its own sound. The API, Better Auth and the
+  board's files are never cached.
+- **A light theme**, now the default, next to the dark one: a button in the header, remembered and applied
+  before the first paint. Every colour is a role defined for both themes in `globals.css` (still Tailwind's
+  configuration only).
+- **Skeletons** while the melodies list and the classroom PC's status load.
+- Tests: the accounts and sessions, the accounts API, the Better Auth process and proxy (pytest, 121); Better
+  Auth's flows, adapter, store and keys checked against the Python side's values, the theme and the service
+  worker (Vitest, 132); the real Better Auth in the end-to-end tests, opening offline and the theme (Playwright, 7).
 - `prettier-plugin-tailwindcss` in `web/`: Prettier keeps the Tailwind classes in their recommended order.
 - [ty](https://docs.astral.sh/ty/) in the `dev` group: `uv run ty check` type-checks the Python code for
   Python 3.12, leaving out the MicroPython firmware (`esp32/`, `tests/board/`). It resolves imports like
@@ -15,6 +41,9 @@ All notable changes to ESP32 Piano are documented here. The format follows
 
 ### Changed
 
+- **Typed MongoDB documents**: every collection of `pianocore/mongo_repo.py` is a `Collection` of its document's
+  `TypedDict` (users, melodies, aliases, meta, sessions), and the melodies' filter is typed too.
+- The REST API's `GET /api/auth/me` is now `GET /api/me` (`/api/auth/*` is Better Auth's).
 - The website is styled with **Tailwind CSS v4** only: every style is a utility class on its element,
   with no stylesheet of its own (`web/src/app/globals.css` just configures Tailwind: the theme and the
   screen-size variants). It is compiled by `@tailwindcss/turbopack`, declared in `next.config.ts` as in
@@ -22,6 +51,11 @@ All notable changes to ESP32 Piano are documented here. The format follows
   on a desktop, a phone and a phone in landscape.
 - The website's icons are `lucide-react` (1.75.0, the version the other websites use) instead of its own
   SVG sprite; the play, stop, back-to-start and record icons stay filled.
+
+### Removed
+
+- `POST /api/auth/register` and `/api/auth/login`, and the HMAC session tokens (`make_token`, `read_token`):
+  Better Auth replaces them.
 
 ## [1.1.1] - 2026-11-21
 
@@ -109,7 +143,8 @@ All notable changes to ESP32 Piano are documented here. The format follows
 
 - First version: a web piano that plays its notes on an ESP32 buzzer over Bluetooth.
 
-[Unreleased]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Pablo-Caballero-Maria/piano/compare/v0.4.0...v1.0.0

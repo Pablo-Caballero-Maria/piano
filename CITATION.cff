@@ -6,8 +6,8 @@ abstract: "A fog-computing system for piano lessons: the teacher's PC serves the
 authors:
   - family-names: "Caballero María"
     given-names: "Pablo"
-version: 1.1.1
-date-released: 2026-11-21
+version: 1.2.0
+date-released: 2026-11-22
 license: MIT
 repository-code: "https://github.com/Pablo-Caballero-Maria/piano"
 url: "https://piano-web-virid.vercel.app"

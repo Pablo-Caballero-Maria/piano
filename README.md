@@ -21,7 +21,9 @@ phone**, in the classroom or at home.
 ![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)
 ![MongoDB Atlas](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)
+![Better Auth](https://img.shields.io/badge/Better_Auth-accounts-000000)
 ![Ably](https://img.shields.io/badge/Ably-live_lessons-FF5416?logo=ably&logoColor=white)
+![PWA](https://img.shields.io/badge/PWA-opens_offline-5A0FC8?logo=pwa&logoColor=white)
 ![Vercel](https://img.shields.io/badge/Vercel-deployed-000000?logo=vercel)
 
 [**Open the website**](https://piano-web-virid.vercel.app) ·
@@ -42,7 +44,7 @@ and follow lessons from home over the internet.
 
 | 🧪 Automated tests | 📡 Internet needed in class | 🔐 Encryption at rest | 🔄 Updates |
 | :---: | :---: | :---: | :---: |
-| 197 (18 run on the board) | none | AES-256-GCM | from GitHub, after the tests pass |
+| 260 (18 run on the board) | none | AES-256-GCM | from GitHub, after the tests pass |
 
 > [!NOTE]
 > The project report (in Spanish) is [docs/memoria/memoria.pdf](docs/memoria/memoria.pdf). It works end
@@ -56,6 +58,7 @@ and follow lessons from home over the internet.
 - [Setting up the teacher's PC](#setting-up-the-teachers-pc)
 - [The board](#the-board)
 - [Online: Vercel and Ably](#online-vercel-and-ably)
+- [Accounts (Better Auth)](#accounts-better-auth)
 - [Development](#development)
 - [Quality and continuous integration](#quality-and-continuous-integration)
 - [Security](#security)
@@ -73,7 +76,7 @@ and follow lessons from home over the internet.
 flowchart LR
     subgraph Classroom["🏫 Classroom router"]
         P["📱 Phones<br/>teacher and students"]
-        PC["💻 Teacher's PC · fog node<br/>nginx · FastAPI app · Mosquitto"]
+        PC["💻 Teacher's PC · fog node<br/>nginx · FastAPI app · Better Auth · Mosquitto"]
         B["🎛️ ESP32 + buzzer<br/>MicroPython"]
         P -- "HTTPS + WebSocket" --> PC
         PC -- "MQTT over TLS" --> B
@@ -82,7 +85,7 @@ flowchart LR
         GH["GitHub<br/>code"]
         AT[("MongoDB Atlas")]
         AB["Ably<br/>live lessons"]
-        V["Vercel<br/>same website + API"]
+        V["Vercel<br/>same website + API + Better Auth"]
     end
     H["🏠 Phones at home"]
     PC -. "updates after the tests pass" .-> GH
@@ -94,14 +97,18 @@ flowchart LR
 ```
 
 - **The teacher's PC** is the *fog node*: it serves the website to the phones in the classroom
-  (nginx, HTTPS for `piano-esp32.duckdns.org`), runs the live class, and drives the board over
-  MQTT. It keeps **no database**: accounts and melodies live on the board. Whenever it has
+  (nginx, HTTPS for `piano-esp32.duckdns.org`), runs the live class and the accounts
+  ([Better Auth](https://www.better-auth.com), a Node.js process the PC app starts and supervises), and
+  drives the board over MQTT. It keeps **no database**: accounts and melodies live on the board. Whenever it has
   internet it updates itself and the board from GitHub (after testing the new version), syncs the
   board with MongoDB Atlas, and relays the lesson to Ably for students at home.
 - **The board** (ESP32, MicroPython) joins the classroom WiFi, plays the buzzer and stores the
   class's accounts and melodies — encrypted: it can't read them.
-- **Vercel** serves the same website for everyone, with the same API on Atlas, plus live lessons
-  over the internet with Ably.
+- **Vercel** serves the same website for everyone, with the same API on Atlas and Better Auth as a
+  Node function, plus live lessons over the internet with Ably.
+- **Accounts** are Better Auth's everywhere: its custom adapter keeps them (and its sessions) through the
+  Python side's internal API, so they stay sealed on the board or in Atlas, follow the same rules and
+  sign in with no internet in the classroom. See [Accounts](#accounts-better-auth).
 - Everything is **encrypted in transit** (HTTPS, WSS, MQTT over TLS) and **at rest** (every stored
   record is sealed with AES-256-GCM using a system key that only the teacher PCs and Vercel hold).
 
@@ -137,11 +144,11 @@ frequency whose volume beats at their difference, and the buzzer plays that mean
 
 | Folder | What it holds |
 | --- | --- |
-| `pianocore/` | shared by the PC and Vercel: crypto, models, auth, repositories (board / Atlas), the rules (`service.py`), board⇄Atlas sync, the REST API, Ably helpers |
-| `fog/` | the teacher's PC: `app.py` (FastAPI), `classroom.py` (live class), `buzzer_queue.py`, `board.py` (MQTT link), `sync_service.py`, `updater.py` (GitHub), `internet.py` (DuckDNS), `ably_bridge.py`, `simboard.py` (simulated board), `settings.py` (`.env`); `python -m fog` |
+| `pianocore/` | shared by the PC and Vercel: crypto, models, sessions (`auth.py`), repositories (board / Atlas, the Atlas one with typed documents), the rules (`service.py`, `accounts.py`), board⇄Atlas sync, the REST API, the accounts API behind Better Auth (`accounts_api.py`), Ably helpers |
+| `fog/` | the teacher's PC: `app.py` (FastAPI), `auth_server.py` (runs Better Auth and forwards `/api/auth/*` to it), `classroom.py` (live class), `buzzer_queue.py`, `board.py` (MQTT link), `sync_service.py`, `updater.py` (GitHub), `internet.py` (DuckDNS), `ably_bridge.py`, `simboard.py` (simulated board), `settings.py` (`.env`); `python -m fog` |
 | `esp32/` | the board's firmware: `main.py` (boot, rollback, update mode), `app.py`, `mqtt.py` (own MQTT client), `kv.py` (encrypted-blob store), `tone.py`, `config.py`, `updater.py`, `ota.py` |
-| `api/` | the Vercel function (`index.py`): the API on Atlas, Ably tokens, live lessons |
-| `web/` | the website: Next.js + TypeScript + Tailwind CSS, built as a static export (`web/out`) that Vercel and the PC serve; `src/services/link` (class link: WebSocket or Ably), `src/state` (the class), `src/studio` (piano roll engine), `src/components` (React). See [web/README.md](web/README.md) |
+| `api/` | the Vercel functions: `index.py` (the API on Atlas, the accounts API, Ably tokens, live lessons) and `auth.ts` (Better Auth) |
+| `web/` | the website: Next.js + TypeScript + Tailwind CSS, built as a static export (`web/out`) that Vercel and the PC serve; `src/services/link` (class link: WebSocket or Ably), `src/state` (the class), `src/studio` (piano roll engine), `src/components` (React), `src/sw` (the service worker); and Better Auth's server, `server/auth` (bundled into `web/out/_server/auth.mjs` for the PC). See [web/README.md](web/README.md) |
 | `install.sh` | sets up a teacher's PC and its board from a fresh clone (asks what it needs) |
 | `deploy/` | nginx, Mosquitto, certbot (DuckDNS DNS challenge) and systemd setup: `sudo deploy/setup.sh` |
 | `tools/` | `board.py` (install the board over USB), `configure.py` (`.env` questions), `fake_board.py` (pretend board), `sim/` (lets the board's MicroPython code run on CPython) |
@@ -154,8 +161,8 @@ frequency whose volume beats at their difference, and the buzzer plays that mean
 1. Everyone joins the classroom WiFi (the router) and opens the classroom's address
    (**https://piano-esp32.duckdns.org** for the first classroom).
 2. **Create an account** (Log in → Create account), choosing **student** or **teacher**. The
-   password never leaves the phone (it sends a PBKDF2 key). An account made on any classroom PC or
-   online works everywhere once the PC has synced.
+   password never leaves the phone (it sends a PBKDF2 key to Better Auth). An account made on any
+   classroom PC or online works everywhere once the PC has synced.
 3. The class is everyone connected to the teacher's PC. The **Class** button opens the class panel.
 4. The teacher presses **Start the lesson** (in the mode they're in: piano or studio):
    - piano: every student sees the teacher's notes on their keyboard (amber marks) and in the bar;
@@ -301,10 +308,13 @@ small (no Bluetooth, no web server: the PC does that) and stores only encrypted 
 ## Online: Vercel and Ably
 
 Vercel builds the website (`npm ci` and `npm run build` in `web/`, see `vercel.json`) and serves
-its static export `web/out`, plus the function `api/index.py` (FastAPI): the same REST API on Atlas,
-`/api/ably/token` (signed Ably token requests: teachers may publish on their own lesson channel
-`class:<name>`, everyone may follow lessons and enter their presence) and `/api/live`. It deploys
-from GitHub on every push to `main`.
+its static export `web/out`, plus two functions: `api/index.py` (FastAPI), the same REST API on Atlas,
+the accounts API at `/api/internal/accounts`, `/api/ably/token` (signed Ably token requests: teachers may
+publish on their own lesson channel `class:<name>`, everyone may follow lessons and enter their presence)
+and `/api/live`; and `api/auth.ts` (Node.js), Better Auth at `/api/auth/*`, whose store calls the accounts
+API on the same host. It deploys from GitHub on every push to `main`. No new setting: Better Auth's secret is
+derived from `PIANO_DATA_KEY`. On preview deployments, which Vercel protects, Better Auth passes the
+request's own pass (the `_vercel_jwt` cookie or bypass header) to its internal calls.
 
 Vercel's build (and only it: `VERCEL=1`) also includes **Vercel Web Analytics** (page views, cookieless)
 and **Speed Insights** (Core Web Vitals of real visits), see `web/src/components/ui/VercelTelemetry.tsx`. The
@@ -321,6 +331,38 @@ pricing, which only accepts Ably's **v3 device SDK** in browsers (`ably.min-3.js
 Vercel (since 2026-11-17): Root Directory = the repository root (so `vercel.json` at the root
 applies), environment variables `PIANO_DATA_KEY` (the same as the PCs'), `MONGODB_URI`,
 `ABLY_API_KEY`.
+
+## Accounts (Better Auth)
+
+Signing up, in and out is [Better Auth](https://www.better-auth.com)'s, with a username, a role (teacher or
+student) and a password the browser turns into a PBKDF2 key first. It runs where the accounts are used:
+
+```mermaid
+flowchart LR
+    P["📱 Page<br/>Better Auth's client"] -- "/api/auth/*" --> BA["Better Auth<br/>PC: Node process (fog/auth_server.py)<br/>Vercel: api/auth.ts"]
+    P -- "Bearer token<br/>/api/melodies, /ws…" --> PY["Python API<br/>checks the signed token"]
+    BA -- "its adapter → /internal/accounts<br/>(internal token)" --> PY
+    PY --> ST[("board (PC) or Atlas (Vercel)<br/>sealed accounts and sessions")]
+```
+
+- **The adapter** (`web/server/auth/adapter.ts`) maps Better Auth's `user`, `account` and `session` onto piano's
+  records through the accounts API (`pianocore/accounts_api.py`): a user and its credential are two views of one
+  sealed piano account, registered in one call once the password arrives, with the rules of
+  `pianocore/accounts.py` (unique names system-wide, pending accounts, joining a class from Atlas, renamed
+  accounts that keep signing in with their old name — the password picks the account). Existing accounts kept
+  signing in: the hash is the same `sha256(salt + key)`.
+- **Sessions** last 30 days and stay with the server that made them: on the board for the PC (sealed, `s/<hash of
+  the token>`), in Atlas's `sessions` collection (with a TTL index) for Vercel. The page keeps Better Auth's
+  signed token (the bearer plugin's `set-auth-token`) and sends it to the REST API and the live class, which
+  check its signature with the same secret and look the session up themselves (`pianocore/auth.py`; on the PC,
+  cached for a minute so a board dropping out doesn't end the class).
+- **Keys**: Better Auth's secret, the accounts API's token and the users' ids are derived from the system key
+  (`PIANO_DATA_KEY`) the same way in Python (`pianocore/crypto.py`) and TypeScript (`web/server/auth/keys.ts`);
+  tests on both sides check the same values.
+- **On the PC** the website's build bundles the server into `web/out/_server/auth.mjs` (never served), so an update
+  that passed its tests brings it along with the site; the app runs it with uv's Node.js (`uv run --group web
+  node …`) on a free local port, restarts it if it stops, and forwards `/api/auth/*` to it with each phone's
+  address. Nothing else changes for nginx, `install.sh` or `.env`.
 
 ## Development
 
@@ -363,10 +405,10 @@ flowchart LR
 
 | Suite | Tests | What they cover | Where |
 | --- | ---: | --- | --- |
-| pytest | 102 | the shared core, the PC app end to end (REST and WebSocket with the board's real storage code), updates against throwaway git repositories, an MQTT integration test through a real broker, the Atlas repository against a real MongoDB | `tests/` |
-| …on the board | 18 of the 102 | written for MicroPython: pytest runs them on the PC and the board runs them on itself before installing an update | `tests/board/` |
-| Vitest | 90 | website logic, services, the Studio engine and components | `web/tests/` |
-| Playwright | 5 | several phones in one class, in Chrome, against the PC app with a simulated board; and that the classroom page talks to nobody but the teacher's PC | `web/e2e/` |
+| pytest | 121 | the shared core, the accounts and sessions behind Better Auth and its accounts API, the PC app end to end (REST and WebSocket with the board's real storage code), running and forwarding to Better Auth, updates against throwaway git repositories, an MQTT integration test through a real broker, the (typed) Atlas repository against a real MongoDB | `tests/` |
+| …on the board | 18 of the 121 | written for MicroPython: pytest runs them on the PC and the board runs them on itself before installing an update | `tests/board/` |
+| Vitest | 132 | website logic, services, the Studio engine, components, the theme and the service worker's routing; Better Auth's server: its flows, the adapter, the store, keys that match the Python side's | `web/tests/` |
+| Playwright | 7 | several phones in one class, in Chrome, against the PC app with a simulated board and the real Better Auth; that the classroom page talks to nobody but the teacher's PC; opening offline; the theme | `web/e2e/` |
 
 > [!TIP]
 > The teacher's PCs don't trust CI: every hour they run the newest commit's own tests (pytest, then the
@@ -382,9 +424,12 @@ must never be committed.
 - In transit: HTTPS/WSS (Let's Encrypt) for phones, MQTT over TLS for the board (certificate
   checked; Mosquitto users and per-board topic ACLs), TLS to Atlas, Ably, GitHub and DuckDNS.
 - At rest: every record on a board or in Atlas is AES-256-GCM sealed (`pianocore/crypto.py`), bound
-  to its key; usernames are stored as keyed hashes. Only ids, the owner's hashed id, the public
-  flag and update times are in the clear (queries need them). Passwords: PBKDF2 in the browser,
-  salted SHA-256 on the server. Sessions: HMAC-signed tokens (30 days).
+  to its key; usernames are stored as keyed hashes, and sessions under a hash of their token. Only ids,
+  the owner's hashed id, the public flag and update times are in the clear (queries need them).
+  Passwords: PBKDF2 in the browser, salted SHA-256 by Better Auth. Sessions: Better Auth's (30 days,
+  renewed daily), kept by the server that created them; its signed token is checked by the Python API
+  with the same secret. Better Auth limits sign-in attempts per phone (the PC forwards each phone's
+  address; one a client claims is ignored).
 - Secrets live only in `.env` (PC) and Vercel's settings. Board updates are verified (TLS + git
   hashes + tests). Anyone may sign up as a teacher (as decided); a teacher-code could be added.
 
@@ -451,7 +496,7 @@ Use the metadata in [CITATION.cff](CITATION.cff) (GitHub's *Cite this repository
   author  = {Caballero María, Pablo},
   title   = {ESP32 Piano: piano lessons with an ESP32 buzzer, a fog node and live classes},
   year    = {2026},
-  version = {1.1.1},
+  version = {1.2.0},
   url     = {https://github.com/Pablo-Caballero-Maria/piano},
   license = {MIT}
 }
@@ -496,6 +541,7 @@ user said the Claude in Chrome extension may be used to set up Ably and Vercel's
 | A class with the real hardware | ✅ 2026-11-18, on a phone's hotspot: two phones (a teacher and a student account) on `https://piano-esp32.duckdns.org`, the buzzer playing, a melody saved on one phone and opened on the other |
 | Ably | ✅ Key `piano-server` created; the PC's relay publishes and reads presence against the real Ably |
 | Vercel (root dir, env vars) | ✅ Set by the user on 2026-11-17 (see the deploy check in History) |
+| Better Auth (since 2026-11-22) | ✅ 121 pytest, 132 Vitest (25 for its server) and 7 Playwright tests; sign-up, sign-in, the session, melodies and sign-out checked by hand through `fog demo` (Node process ⇄ accounts API ⇄ simulated board); Vercel's build of `api/auth.ts` run locally (`vercel build`) and its function loaded in Node |
 
 ### Hardware
 - ESP32 dev board, **MicroPython v1.29.0** (`ESP32_GENERIC`), borrowed from the teacher; its own
@@ -584,10 +630,26 @@ user said the Claude in Chrome extension may be used to set up Ably and Vercel's
    an iPhone hotspot was WPA2/WPA3 on 2.4 GHz and refused the board as full (ESP32 reason 5); a
    Redmi hotspot on 5 GHz was invisible to it; on a Redmi hotspot set to 2.4 GHz everything worked.
 
+9. **2026-11-22**: at the user's request, accounts moved to **Better Auth**, keeping piano's design: the
+   user chose (of three options) Better Auth on both servers with its data through pianocore, rather than
+   Better Auth only online or no change. Better Auth (Node.js) runs next to the PC app — started and
+   supervised by it with uv's Node, its bundle built with the website so the updater brings it along — and as
+   a Node function on Vercel; a custom adapter maps its user, credential account and session onto piano's
+   sealed records through an internal accounts API that applies the old rules (unique names, pending
+   accounts, joining a class, renamed accounts: the password picks between two accounts that sign in with one
+   name). Existing accounts keep their password (same hash); old sessions end once. The Python API checks
+   Better Auth's signed tokens itself. Also: typed MongoDB documents in `pianocore/mongo_repo.py`, a light
+   theme (now the default) next to the dark one, a service worker so the page opens offline, and skeletons.
+   Found while testing: Vercel compiles `api/auth.ts` to CommonJS and `web/server` as ES modules, so the
+   imports need their `.js` extensions; Better Auth looks a row up with `findMany` before deleting it, which
+   the adapter now answers.
+
 ### Not verified yet
 - `./install.sh` on Debian/Ubuntu or Fedora; its "join at boot" and lid options (not used: the
   network was a phone's hotspot).
 - A real classroom router (DNS rebinding protection on the router?): so far a phone's hotspot.
 - The board's clock from the PC's Date header (a classroom without internet).
 - A real update of a teacher PC to a new version through the service (its commands were run by
-  hand on a fresh worktree, see History 7).
+  hand on a fresh worktree, see History 7 and 9).
+- Better Auth on a real teacher PC under systemd (the service's `uv run` → `uv run --group web node`), and
+  sign-up/sign-in on the production Vercel site after the deploy of 2026-11-22.

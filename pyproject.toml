@@ -1,6 +1,6 @@
 [project]
 name = "piano"
-version = "1.1.1"
+version = "1.2.0"
 description = "Piano lessons with an ESP32 buzzer: a teacher PC (fog node), MQTT, MongoDB Atlas, Vercel and Ably"
 readme = "README.md"
 requires-python = ">=3.12"
