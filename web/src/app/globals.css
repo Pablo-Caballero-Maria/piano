@@ -1,20 +1,46 @@
 /*
  * Tailwind CSS v4, compiled by @tailwindcss/turbopack (next.config.ts). Only its configuration lives
- * here: the theme (colours, fonts, the blinking animation) and the screen-size variants. Every style
- * is a utility class on its element (the shared ones in components/ui/classes.ts).
+ * here: the theme (colours, fonts, the blinking animation), the dark theme's colours, and the
+ * screen-size and theme variants. Every style is a utility class on its element (the shared ones in
+ * components/ui/classes.ts).
+ *
+ * Two themes: light by default, dark when chosen with the button in the header (src/lib/theme.ts
+ * sets <html data-theme="dark">). The colours below are the light theme's; the dark theme replaces
+ * them further down, so components only name roles (bg-panel, text-muted…), never a theme.
  */
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme {
-  --color-bg: #14161a;
-  --color-panel: #1e2127;
-  --color-line: #333842;
-  --color-fg: #e9ebef;
-  --color-muted: #9aa1ad;
-  --color-accent: #4cc38a;
-  --color-warn: #e5a54b;
-  --color-err: #e5484d;
-  --color-teacher: #e5a54b;
+  --color-bg: #f4f5f7;
+  --color-panel: #ffffff;
+  --color-line: #d4d8df;
+  --color-fg: #15181d;
+  --color-muted: #5d6573;
+  --color-accent: #1e9c62;
+  --color-warn: #b56f10;
+  --color-err: #d1343a;
+  --color-teacher: #b56f10;
+  /* Text on the accent (a pressed or main button) and red text (delete) */
+  --color-on-accent: #ffffff;
+  --color-danger: #c4262e;
+  /* Rows of lists, a selected tab, a toast; the border under the mouse */
+  --color-sunken: #f0f2f5;
+  --color-raised: #e5e8ed;
+  --color-hover-line: #9aa1ad;
+  /* The teacher's colour as a note on the page: a live lesson, following the teacher, a warning */
+  --color-warm-bg: #fdf3e1;
+  --color-warm-line: #e2c48a;
+  --color-warm-fg: #6b4a10;
+  /* The piano roll: its background, bar / beat / 1-16 lines, and the rows of white and black keys */
+  --color-roll: #fbfbfc;
+  --color-roll-bar: #b7bec9;
+  --color-roll-beat: #d9dde3;
+  --color-roll-step: #e8ebef;
+  --color-roll-row: #ffffff;
+  --color-roll-row-dark: #f0f2f5;
+  --color-roll-rowline: rgba(0, 0, 0, 0.07);
 
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, monospace;
@@ -24,6 +50,39 @@
   @keyframes blink {
     to {
       opacity: 0.3;
+    }
+  }
+}
+
+/* The dark theme: the same roles, darker. */
+@layer theme {
+  :root {
+    @variant dark {
+      color-scheme: dark;
+      --color-bg: #14161a;
+      --color-panel: #1e2127;
+      --color-line: #333842;
+      --color-fg: #e9ebef;
+      --color-muted: #9aa1ad;
+      --color-accent: #4cc38a;
+      --color-warn: #e5a54b;
+      --color-err: #e5484d;
+      --color-teacher: #e5a54b;
+      --color-on-accent: #06140d;
+      --color-danger: #ff9b9e;
+      --color-sunken: #191c21;
+      --color-raised: #2e333d;
+      --color-hover-line: #4a505c;
+      --color-warm-bg: #241f15;
+      --color-warm-line: #5a4a2a;
+      --color-warm-fg: #f0d9ad;
+      --color-roll: #1b1e23;
+      --color-roll-bar: #4b5260;
+      --color-roll-beat: #323843;
+      --color-roll-step: #2b3039;
+      --color-roll-row: #252930;
+      --color-roll-row-dark: #1d2025;
+      --color-roll-rowline: rgba(0, 0, 0, 0.3);
     }
   }
 }

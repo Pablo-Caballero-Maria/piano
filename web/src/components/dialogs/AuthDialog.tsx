@@ -141,7 +141,7 @@ export function AuthDialog() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </label>
-        <p className="mt-1 min-h-[1.2em] text-[13px] text-[#ff9b9e]" role="alert">
+        <p className="mt-1 min-h-[1.2em] text-[13px] text-danger" role="alert">
           {error}
         </p>
         <div className={DIALOG_ROW}>

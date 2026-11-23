@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Modal, ModalHeader } from "@/components/dialogs/Modal";
 import { Copy, Globe, Play, Trash } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { button, ICON, MUTED, MUTED_P, SEGMENTED } from "@/components/ui/classes";
 import { useStore } from "@/hooks/useStore";
 import { formatTime, plural, timeAgo } from "@/lib/format";
@@ -89,7 +90,13 @@ export function MelodiesDialog({ open, onClose, library, currentId }: MelodiesDi
         </button>
       </div>
       <ul className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-auto">
-        {list.status === "loading" ? <li className={`${ROW} ${MUTED}`}>Loading…</li> : null}
+        {list.status === "loading"
+          ? [0, 1, 2].map((i) => (
+              <li key={i} aria-label={i === 0 ? "Loading the melodies" : undefined} aria-busy="true">
+                <Skeleton className="h-[52px]" />
+              </li>
+            ))
+          : null}
         {list.status === "error" ? <li className={`${ROW} ${MUTED}`}>{list.message}</li> : null}
         {list.status === "ready"
           ? list.items.map((m) => (
@@ -132,7 +139,7 @@ export function describeMelody(m: MelodySummary, mine: boolean, now = Date.now()
 
 function MelodyRow({ melody: m, mine, current, onPlay, onOpen, onCopy, onDelete }: MelodyRowProps) {
   return (
-    <li className={`${ROW} border bg-[#191c21] ${current ? "border-accent" : "border-line"}`}>
+    <li className={`${ROW} border bg-sunken ${current ? "border-accent" : "border-line"}`}>
       <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
         <b className="truncate">{m.name}</b>
         <small className="text-[12px] text-muted">{describeMelody(m, mine)}</small>

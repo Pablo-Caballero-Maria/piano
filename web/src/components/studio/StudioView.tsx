@@ -42,7 +42,7 @@ export function StudioView({ studio, library, active, teacherNotes }: StudioView
     <main className="studio-view flex min-h-0 flex-1 flex-col" hidden={!active}>
       <StudioToolbar studio={studio} library={library} onOpenList={() => void openList()} />
       {s.following ? (
-        <div className="followbar mx-4 mb-2 flex flex-wrap items-center gap-2.5 rounded-[10px] border border-[#5a4a2a] bg-[#241f15] px-3 py-2 text-[14px] text-[#f0d9ad]">
+        <div className="followbar mx-4 mb-2 flex flex-wrap items-center gap-2.5 rounded-[10px] border border-warm-line bg-warm-bg px-3 py-2 text-[14px] text-warm-fg">
           <span>Following {s.following}&apos;s piano roll (read-only)</span>
           <button type="button" className={`${button()} ml-auto`} onClick={() => studio.follow(null)}>
             Back to my melody
@@ -50,7 +50,7 @@ export function StudioView({ studio, library, active, teacherNotes }: StudioView
         </div>
       ) : null}
       <div
-        className="roll relative mx-3 min-h-[110px] flex-1 overflow-auto overscroll-contain rounded-[10px] border border-line bg-[#1b1e23]"
+        className="roll relative mx-3 min-h-[110px] flex-1 overflow-auto overscroll-contain rounded-[10px] border border-line bg-roll"
         ref={rollRef}
       />
       <div className="flex-none px-3 pt-2 pb-2.5 short:pt-1 short:pb-1.5" hidden={s.keyboardHidden}>

@@ -13,7 +13,7 @@ export function SecureNotice() {
   );
   if (!insecure) return null;
   return (
-    <div className="mx-4 mb-2 rounded-[10px] border border-[#5a4a2a] bg-[#2b2416] px-3 py-2.5 text-[14px] leading-[1.4] text-[#f0d9ad]">
+    <div className="mx-4 mb-2 rounded-[10px] border border-warm-line bg-warm-bg px-3 py-2.5 text-[14px] leading-[1.4] text-warm-fg">
       Open this page over https:// (accounts and the class need a secure page).
     </div>
   );

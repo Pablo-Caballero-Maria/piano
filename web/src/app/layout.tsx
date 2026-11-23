@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { ServiceWorker } from "@/components/ui/ServiceWorker";
 import { VercelTelemetry } from "@/components/ui/VercelTelemetry";
+import { THEME_COLORS, THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,15 +16,25 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#14161a",
+  // The light theme's; the theme button changes it (lib/theme.ts)
+  themeColor: THEME_COLORS.light,
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    // leading-[normal] and the tap highlight: the browser's defaults, which Tailwind's reset changes
-    <html lang="en" className="h-full bg-bg leading-[normal] text-fg [-webkit-tap-highlight-color:revert]">
+    // leading-[normal] and the tap highlight: the browser's defaults, which Tailwind's reset changes.
+    // The theme script sets data-theme before React hydrates, hence suppressHydrationWarning.
+    <html
+      lang="en"
+      className="h-full bg-bg leading-[normal] text-fg [-webkit-tap-highlight-color:revert]"
+      suppressHydrationWarning
+    >
+      <head>
+        {/* A plain script, not next/script: it must run before the first paint */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="h-full overflow-hidden bg-bg text-fg select-none [-webkit-touch-callout:none]">
-        {children}
+        <ServiceWorker>{children}</ServiceWorker>
         <VercelTelemetry />
       </body>
     </html>

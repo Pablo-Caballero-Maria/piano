@@ -43,4 +43,5 @@ export const STORAGE_KEYS = {
   mode: "piano-mode",
   studioDraft: "piano-studio-draft",
   studioKeyboard: "piano-studio-kb",
+  theme: "piano-theme",
 } as const;

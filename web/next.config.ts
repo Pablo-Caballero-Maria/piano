@@ -10,13 +10,16 @@
  * app running locally: `uv run python -m fog demo` (http://127.0.0.1:8080, or PIANO_BACKEND).
  *
  * The styles are Tailwind CSS v4 (src/app/globals.css), compiled by its Turbopack loader.
+ * withSerwist keeps esbuild, which builds the service worker (src/app/serwist/[path]/route.ts), out
+ * of the server bundle.
  */
+import { withSerwist } from "@serwist/turbopack";
 import type { NextConfig } from "next";
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
 const BACKEND = process.env.PIANO_BACKEND ?? "http://127.0.0.1:8080";
 
-const base: NextConfig = {
+const base: NextConfig = withSerwist({
   reactStrictMode: true,
   poweredByHeader: false,
   turbopack: {
@@ -27,7 +30,7 @@ const base: NextConfig = {
       },
     },
   },
-};
+});
 
 export default function nextConfig(phase: string): NextConfig {
   if (phase === PHASE_DEVELOPMENT_SERVER) {

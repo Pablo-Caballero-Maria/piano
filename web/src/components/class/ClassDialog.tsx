@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { Modal, ModalHeader } from "@/components/dialogs/Modal";
 import { X } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { button, DIALOG_ROW_START, ICON, MUTED_P } from "@/components/ui/classes";
 import { useStore } from "@/hooks/useStore";
 import { noteNames } from "@/lib/notes";
@@ -20,7 +21,7 @@ import { toast } from "@/state/toast";
 const HEADING = "mb-1.5 text-[14px] font-bold tracking-[0.04em] text-muted uppercase";
 /** A list of names with a button or two each. */
 const LIST = "mt-1.5 flex flex-col gap-1.5";
-const LIST_ITEM = "flex items-center gap-1.5 rounded-[10px] border border-line bg-[#191c21] px-2.5 py-1.5";
+const LIST_ITEM = "flex items-center gap-1.5 rounded-[10px] border border-line bg-sunken px-2.5 py-1.5";
 
 export interface ClassDialogProps {
   open: boolean;
@@ -201,7 +202,7 @@ function PeopleSection({ cls, me }: { cls: ClassSnapshot; me: string | null }) {
           return (
             <li
               key={p.id}
-              className="flex items-center gap-1.5 rounded-[10px] border border-line bg-[#191c21] px-2.5 py-2"
+              className="flex items-center gap-1.5 rounded-[10px] border border-line bg-sunken px-2.5 py-2"
             >
               <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
                 <b className="truncate">
@@ -241,7 +242,7 @@ function pcStatusText(s: PcStatus): string {
 
 /** The classroom PC: board, internet, cloud sync and software version; check for updates. */
 function PcSection() {
-  const [text, setText] = useState("…");
+  const [text, setText] = useState<string | null>(null); // null: still asking
   const [refreshes, setRefreshes] = useState(0);
 
   useEffect(() => {
@@ -268,9 +269,13 @@ function PcSection() {
   return (
     <section>
       <h3 className={HEADING}>Classroom PC</h3>
-      <pre className="rounded-lg border border-line bg-[#191c21] px-2.5 py-2 text-[12px] whitespace-pre-wrap text-muted select-text">
-        {text}
-      </pre>
+      {text === null ? (
+        <Skeleton className="h-[72px]" />
+      ) : (
+        <pre className="rounded-lg border border-line bg-sunken px-2.5 py-2 text-[12px] whitespace-pre-wrap text-muted select-text">
+          {text}
+        </pre>
+      )}
       <div className={DIALOG_ROW_START}>
         <button type="button" className={button()} onClick={() => void checkForUpdates()}>
           Check for updates

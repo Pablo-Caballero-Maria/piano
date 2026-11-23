@@ -1,8 +1,9 @@
 "use client";
 
-/** The top bar: the mode tabs, how the class link is doing, device sound, Class and the account. */
+/** The top bar: the mode tabs, how the class link is doing, device sound, the theme, Class and the account. */
 import { Music, Piano, User, Users, Volume2, VolumeX, type LucideIcon } from "lucide-react";
 import { button, ICON } from "@/components/ui/classes";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useStore } from "@/hooks/useStore";
 import { api, classState, sound } from "@/services";
 import type { Mode } from "@/services/link/messages";
@@ -42,6 +43,7 @@ export function Header({ mode, onModeChange, onOpenClass, onOpenAccount }: Heade
       </nav>
       <ConnectionStatus />
       <SoundToggle />
+      <ThemeToggle />
       <ClassButton onClick={onOpenClass} />
       <AccountButton onClick={onOpenAccount} />
     </header>

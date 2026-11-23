@@ -15,25 +15,25 @@ const BUTTON_BASE =
   "cursor-pointer touch-manipulation whitespace-nowrap disabled:cursor-default disabled:opacity-45 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent";
 
 /** The lighter border under the mouse (not on the red ones). */
-const HOVER = "[&:hover:not(:disabled)]:border-[#4a505c]";
+const HOVER = "[&:hover:not(:disabled)]:border-hover-line";
 
 /** Colours. A pressed toggle (aria-pressed) turns green unless its look says otherwise. */
 const LOOKS = {
   plain: `border border-line bg-panel text-fg aria-pressed:border-accent aria-pressed:text-accent ${HOVER}`,
   /** The main action. */
-  primary: `border border-accent bg-accent font-semibold text-[#06140d] ${HOVER}`,
+  primary: `border border-accent bg-accent font-semibold text-on-accent ${HOVER}`,
   /** A main action that deletes or ends something. */
   primaryDanger: "border border-err bg-err font-semibold text-white",
   /** Deletes something: red text, and red all over once armed (the second click deletes). */
-  danger: `border border-line bg-panel text-[#ff9b9e] ${HOVER}`,
+  danger: `border border-line bg-panel text-danger ${HOVER}`,
   armed: "border border-err bg-err text-white",
   /** Play/Stop: filled green while playing. */
-  play: `border border-line bg-panel text-fg aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-[#06140d] ${HOVER}`,
+  play: `border border-line bg-panel text-fg aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-on-accent ${HOVER}`,
   /** Record: a red dot, and all red (blinking) while recording. */
   record: `border border-line bg-panel text-err ${HOVER}`,
   recording: "animate-[blink_0.8s_infinite_alternate] border border-err bg-err text-white",
   /** A tab of the mode switch: no border, the selected one lighter. */
-  tab: "border-0 bg-transparent text-muted aria-selected:bg-[#2e333d] aria-selected:text-fg",
+  tab: "border-0 bg-transparent text-muted aria-selected:bg-raised aria-selected:text-fg",
 } as const;
 
 /** Size and corners. */

@@ -19,7 +19,7 @@ export function ClassBar() {
   const live = !!cls.lesson.live;
   return (
     <div
-      className={`classbar mx-4 mb-2 flex items-center gap-2 rounded-[10px] border px-3 py-2 text-[14px] ${live ? "border-[#5a4a2a] bg-[#241f15]" : "border-line bg-panel"}`}
+      className={`classbar mx-4 mb-2 flex items-center gap-2 rounded-[10px] border px-3 py-2 text-[14px] ${live ? "border-warm-line bg-warm-bg" : "border-line bg-panel"}`}
     >
       <span
         className={`size-2.5 flex-none rounded-full ${live ? "animate-[blink_1.2s_infinite_alternate] bg-teacher shadow-[0_0_8px_var(--color-teacher)]" : "bg-muted"}`}
