@@ -1,4 +1,4 @@
-"""The Vercel serverless API (https://piano-web-virid.vercel.app/api/…), for every class.
+"""The Vercel serverless API (https://esp32-piano.vercel.app/api/…), for every class.
 
 The same REST API as the teacher's PC (:mod:`pianocore.api`), on MongoDB Atlas, the accounts API
 of Better Auth's store (:mod:`pianocore.accounts_api`, at ``/api/internal/accounts``: Better Auth

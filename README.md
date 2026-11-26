@@ -11,7 +11,7 @@ phone**, in the classroom or at home.
 [![Coverage (web)](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FPablo-Caballero-Maria%2Fpiano%2Fbadges%2Fcoverage-web.json)](https://github.com/Pablo-Caballero-Maria/piano/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Pablo-Caballero-Maria/piano)](https://github.com/Pablo-Caballero-Maria/piano/releases)
 [![License: MIT](https://img.shields.io/github/license/Pablo-Caballero-Maria/piano)](LICENSE)
-[![Website](https://img.shields.io/website?url=https%3A%2F%2Fpiano-web-virid.vercel.app&label=piano-web-virid.vercel.app)](https://piano-web-virid.vercel.app)
+[![Website](https://img.shields.io/website?url=https%3A%2F%2Fesp32-piano.vercel.app&label=esp32-piano.vercel.app)](https://esp32-piano.vercel.app)
 
 ![ESP32](https://img.shields.io/badge/ESP32-MicroPython_1.29-E7352C?logo=espressif&logoColor=white)
 ![MQTT](https://img.shields.io/badge/MQTT-Mosquitto_·_TLS-660066?logo=eclipsemosquitto&logoColor=white)
@@ -26,11 +26,11 @@ phone**, in the classroom or at home.
 ![PWA](https://img.shields.io/badge/PWA-opens_offline-5A0FC8?logo=pwa&logoColor=white)
 ![Vercel](https://img.shields.io/badge/Vercel-deployed-000000?logo=vercel)
 
-[**Open the website**](https://piano-web-virid.vercel.app) ·
+[**Open the website**](https://esp32-piano.vercel.app) ·
 [Wiki](https://github.com/Pablo-Caballero-Maria/piano/wiki) ·
 [Project report (Spanish)](docs/memoria/memoria.pdf) ·
 [Changelog](CHANGELOG.md) ·
-[Write-up on my portfolio](https://pablo-portfolio-woad.vercel.app/projects/piano)
+[Write-up on my portfolio](https://pablo-caballero.vercel.app/projects/piano)
 
 <img src="docs/img/studio.webp" alt="The Studio: a piano roll with bars, note names and frequencies, transport controls and an on-screen keyboard" width="820">
 
@@ -44,7 +44,7 @@ and follow lessons from home over the internet.
 
 | 🧪 Automated tests | 📡 Internet needed in class | 🔐 Encryption at rest | 🔄 Updates |
 | :---: | :---: | :---: | :---: |
-| 260 (18 run on the board) | none | AES-256-GCM | from GitHub, after the tests pass |
+| 281 (18 run on the board) | none | AES-256-GCM | from GitHub, after the tests pass |
 
 > [!NOTE]
 > The project report (in Spanish) is [docs/memoria/memoria.pdf](docs/memoria/memoria.pdf). It works end
@@ -145,7 +145,7 @@ frequency whose volume beats at their difference, and the buzzer plays that mean
 | Folder | What it holds |
 | --- | --- |
 | `pianocore/` | shared by the PC and Vercel: crypto, models, sessions (`auth.py`), repositories (board / Atlas, the Atlas one with typed documents), the rules (`service.py`, `accounts.py`), board⇄Atlas sync, the REST API, the accounts API behind Better Auth (`accounts_api.py`), Ably helpers |
-| `fog/` | the teacher's PC: `app.py` (FastAPI), `auth_server.py` (runs Better Auth and forwards `/api/auth/*` to it), `classroom.py` (live class), `buzzer_queue.py`, `board.py` (MQTT link), `sync_service.py`, `updater.py` (GitHub), `internet.py` (DuckDNS), `ably_bridge.py`, `simboard.py` (simulated board), `settings.py` (`.env`); `python -m fog` |
+| `fog/` | the teacher's PC: `app.py` (FastAPI), `security.py` (the security headers of every response), `auth_server.py` (runs Better Auth and forwards `/api/auth/*` to it), `classroom.py` (live class), `buzzer_queue.py`, `board.py` (MQTT link), `sync_service.py`, `updater.py` (GitHub), `internet.py` (DuckDNS), `ably_bridge.py`, `simboard.py` (simulated board), `settings.py` (`.env`); `python -m fog` |
 | `esp32/` | the board's firmware: `main.py` (boot, rollback, update mode), `app.py`, `mqtt.py` (own MQTT client), `kv.py` (encrypted-blob store), `tone.py`, `config.py`, `updater.py`, `ota.py` |
 | `api/` | the Vercel functions: `index.py` (the API on Atlas, the accounts API, Ably tokens, live lessons) and `auth.ts` (Better Auth) |
 | `web/` | the website: Next.js + TypeScript + Tailwind CSS, built as a static export (`web/out`) that Vercel and the PC serve; `src/services/link` (class link: WebSocket or Ably), `src/state` (the class), `src/studio` (piano roll engine), `src/components` (React), `src/sw` (the service worker); and Better Auth's server, `server/auth` (bundled into `web/out/_server/auth.mjs` for the PC). See [web/README.md](web/README.md) |
@@ -432,6 +432,23 @@ must never be committed.
   address; one a client claims is ignored).
 - Secrets live only in `.env` (PC) and Vercel's settings. Board updates are verified (TLS + git
   hashes + tests). Anyone may sign up as a teacher (as decided); a teacher-code could be added.
+- **Security headers** on every response, from one definition (`web/src/lib/site-security.ts`) for both homes:
+  a **Content Security Policy** (code, styles and fonts only from the site itself; connections only to it and,
+  online, to Ably; no framing; forms only to the site), HSTS online, `nosniff`, `X-Frame-Options`,
+  `Referrer-Policy`, `Cross-Origin-Opener-Policy` and a `Permissions-Policy` that grants nothing.
+  - **Online** they're in `vercel.json` (written by `npm run headers:vercel`; a test fails if it's out of
+    step): the strict set on the production host, and on previews the same plus Vercel's toolbar.
+  - **In the classroom** the build writes them to `web/out/_server/headers.json` and the PC app adds them to
+    every response (`fog/security.py`), re-reading the file after an update. They allow the class's WebSocket
+    to the PC and plain HTTP (no `upgrade-insecure-requests` on the school's network).
+  - Scripts still allow `'unsafe-inline'`: the site is a static export, and Next.js puts data in inline
+    `<script>` tags that only a per-request nonce could authorise.
+- **zod** checks what the page receives (the API's answers, what `localStorage` gives back, the login form)
+  and, in Better Auth's server, the accounts API's answers and its environment. It runs without `eval`
+  (`web/src/lib/zod.ts`, enforced by ESLint), as the CSP requires.
+- **Vercel Firewall**: the platform's DDoS mitigation, a rule that logs scanners probing for WordPress, `.env`,
+  `.git` and the like, and the *Bot Protection* and *AI Bots* rulesets, for now in log mode. Sign-in attempts are
+  limited by Better Auth per phone (the Firewall's rate limiting isn't on the Hobby plan).
 
 ## Protocols (details in each module's docstring)
 

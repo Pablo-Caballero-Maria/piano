@@ -52,7 +52,7 @@ in public spaces.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported privately to the
-maintainer: through the contact details on [@Pablo-Caballero-Maria](https://github.com/Pablo-Caballero-Maria)'s [portfolio](https://pablo-portfolio-woad.vercel.app/#contact). All complaints will be reviewed and investigated promptly and fairly, and the
+maintainer: through the contact details on [@Pablo-Caballero-Maria](https://github.com/Pablo-Caballero-Maria)'s [portfolio](https://pablo-caballero.vercel.app/#contact). All complaints will be reviewed and investigated promptly and fairly, and the
 privacy and security of the reporter of any incident will be respected.
 
 ## Enforcement Guidelines

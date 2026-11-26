@@ -17,7 +17,7 @@ describe("Better Auth on Vercel", () => {
       cookie: "_vercel_jwt=abc.def",
       "x-vercel-protection-bypass": "s3cret",
     });
-    expect(protectionHeaders(new Request("https://piano-web-virid.vercel.app/"))).toEqual({});
+    expect(protectionHeaders(new Request("https://esp32-piano.vercel.app/"))).toEqual({});
     const viaCli = new Request("https://piano-web-git-x.vercel.app/", {
       headers: { "x-vercel-trusted-oidc-idp-token": "oidc" },
     });

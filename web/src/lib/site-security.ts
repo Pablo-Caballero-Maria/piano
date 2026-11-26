@@ -15,7 +15,7 @@ import { securityHeaders, type SecurityOptions } from "./security-headers";
 export type Target = "online" | "classroom";
 
 /** The production address; any other Vercel host (previews, deployment URLs) gets the toolbar. */
-export const PRODUCTION_HOST = "piano-web-virid.vercel.app";
+export const PRODUCTION_HOST = "esp32-piano.vercel.app";
 
 /** Ably's realtime hosts (main.realtime.ably.net, its fallbacks and connectivity checks). */
 export const ABLY_HOSTS = [

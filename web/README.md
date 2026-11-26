@@ -53,8 +53,11 @@ src/
                 (classes.ts)
   hooks/        useStore / useSelect (stores → React), useMode (#piano / #studio), useTheme
   lib/          plain logic, no DOM: notes and the resultant frequency, melody text format,
-                the playback timeline, undo history, keyboard layout and controller, stores, the theme
-  services/     the outside world: the REST client and session (api.ts), accounts through Better
+                the playback timeline, undo history, keyboard layout and controller, stores (zustand),
+                the theme, zod (without eval: zod.ts), TanStack Query's client (query.ts), the
+                security headers (security-headers.ts, site-security.ts) and the animations (motion.ts)
+  services/     the outside world: the REST client and session (api.ts, its answers checked by the zod
+                schemas of schemas.ts), accounts through Better
                 Auth's client (auth.ts), the live class link
                 (link/: WebSocket in the classroom, Ably online), the sound output (sound.ts)
   state/        the class as the page sees it (class-state.ts), toasts, dialog requests
@@ -63,16 +66,20 @@ src/
                 and opening melodies (library.ts)
   sw/           the service worker (worker.ts): the page offline; what it never caches
 server/auth/    Better Auth's server: configuration (auth.ts), the adapter onto piano's accounts
-                (adapter.ts), the accounts API client (store.ts), keys and password hashing, and its
-                entry points for the PC (server.ts) and Vercel (vercel.ts)
-scripts/        build-auth-server.mjs: bundles server/auth for the PC
+                (adapter.ts), the accounts API client (store.ts, answers checked with zod), its
+                environment (env.ts), keys and password hashing, and its entry points for the PC
+                (server.ts) and Vercel (vercel.ts)
+scripts/        build-auth-server.mjs: bundles server/auth for the PC; write-headers.mjs: the security
+                headers for the PC (out/_server/headers.json) or vercel.json (--vercel)
 tests/          Vitest + Testing Library (jsdom), mirroring src/; server/ in Node
 e2e/            Playwright: real Chrome against the PC's app with a simulated board
 ```
 
 How the pieces talk: logic lives in plain TypeScript classes that keep their state in a small
-`Store` (`lib/store.ts`); components read stores with `useStore()`/`useSelect()` and call the
-classes' methods. The services are one per page (`services/index.ts`). The piano roll is the one
+`Store` (`lib/store.ts`, a zustand store underneath); components read stores with
+`useStore()`/`useSelect()` and call the classes' methods. What the page asks the server for and shows
+in a dialog (melody lists, the server's config, the classroom PC's status) goes through TanStack Query,
+and the login dialog is a react-hook-form form with a mutation. The services are one per page (`services/index.ts`). The piano roll is the one
 part drawn outside React: hundreds of notes and a playhead that moves every frame are faster as
 DOM the engine updates directly, inside an element React leaves alone.
 
@@ -93,6 +100,10 @@ DOM the engine updates directly, inside an element React leaves alone.
 - The page opens offline once visited (a Serwist service worker; the API, Better Auth and the board's
   files are never cached), and shows skeletons while melodies and the PC's status load.
 - Icons are `lucide-react` components (inline SVG, the same set as the other websites).
+- A few subtle animations with motion (toasts, form errors), none when the system asks for reduced
+  motion; only things that appear after an action are animated, never the prerendered page.
+- Security headers come from `lib/site-security.ts` (see the main README, _Security_): change it, then
+  `npm run headers:vercel`; the PC gets them from the build.
 - Ably's v3 browser SDK (required by the account's MAU pricing) isn't on npm: it's loaded from
   Ably's CDN only when online (`services/link/ably-sdk.ts`).
 - Comments and docs explain _why_; user-facing text is English, like the rest of the page.

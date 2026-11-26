@@ -6,6 +6,35 @@ All notable changes to ESP32 Piano are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-26
+
+### Added
+
+- **Security headers** on every response, from one definition (`web/src/lib/site-security.ts`): a Content
+  Security Policy (the site itself only; online, also Ably's SDK and hosts), HSTS online, `nosniff`,
+  `X-Frame-Options`, `Referrer-Policy`, `Cross-Origin-Opener-Policy` and `Permissions-Policy`. Online they're
+  in `vercel.json` (`npm run headers:vercel`, kept in step by a test; previews also let Vercel's toolbar in);
+  in the classroom the build writes `web/out/_server/headers.json` and the PC app adds them to every response
+  (`fog/security.py`), re-reading them after an update. The end-to-end tests fail on any CSP violation.
+- **Vercel Firewall**: a rule that logs scanners' probes (WordPress, `.env`, `.git`…) and the Bot Protection
+  and AI Bots rulesets, in log mode.
+
+### Changed
+
+- **zod** checks the API's answers, what `localStorage` gives back and the login form, and in Better Auth's
+  server the accounts API's answers and its environment (one clear error at start-up). It runs without
+  `eval`, as the CSP requires (`web/src/lib/zod.ts`, enforced by ESLint).
+- The stores are **zustand** stores; **TanStack Query** loads the melody lists (refreshed when a melody is
+  saved, copied or deleted), the server's config and the classroom PC's status; the login dialog is a
+  **react-hook-form** form with a mutation.
+- **motion**: toasts come up and go back down gently, and form errors rise in (none with reduced motion).
+- The website moved to **esp32-piano.vercel.app** (the old address redirects to it); the report says so too.
+
+### Fixed
+
+- Melody times are numbers (milliseconds), as the server sends them, not strings (found by the new
+  validation).
+
 ## [1.2.0] - 2026-11-22
 
 ### Added
@@ -143,7 +172,8 @@ All notable changes to ESP32 Piano are documented here. The format follows
 
 - First version: a web piano that plays its notes on an ESP32 buzzer over Bluetooth.
 
-[Unreleased]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/Pablo-Caballero-Maria/piano/compare/v1.0.0...v1.1.0

@@ -29,7 +29,7 @@
       "has": [
         {
           "type": "host",
-          "value": "piano-web-virid.vercel.app"
+          "value": "esp32-piano.vercel.app"
         }
       ],
       "headers": [
@@ -68,7 +68,7 @@
       "missing": [
         {
           "type": "host",
-          "value": "piano-web-virid.vercel.app"
+          "value": "esp32-piano.vercel.app"
         }
       ],
       "headers": [

@@ -7,8 +7,8 @@ contact_links:
     url: https://github.com/Pablo-Caballero-Maria/piano/wiki
     about: "How it works, set-up and FAQ."
   - name: "Live site"
-    url: https://piano-web-virid.vercel.app
+    url: https://esp32-piano.vercel.app
     about: "Try it before reporting."
   - name: "Project write-up"
-    url: https://pablo-portfolio-woad.vercel.app/projects/piano
+    url: https://pablo-caballero.vercel.app/projects/piano
     about: "On the author's portfolio."
