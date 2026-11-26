@@ -1,5 +1,5 @@
 // A class in the classroom: the teacher's PC app with a simulated board (fog demo).
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { openClass, signUp, username } from "./helpers";
 
 test("a piano lesson: the student sees the teacher's notes; the teacher sees the student", async ({

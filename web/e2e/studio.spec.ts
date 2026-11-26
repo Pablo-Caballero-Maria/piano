@@ -1,5 +1,6 @@
 // The Studio: compose, save, open; and following the teacher's piano roll in a lesson.
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { openClass, signUp } from "./helpers";
 
 /** Click the roll's grid `beats` beats from its left edge, on row `rows` from the top of the view. */

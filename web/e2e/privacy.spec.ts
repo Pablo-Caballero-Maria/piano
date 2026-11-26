@@ -1,5 +1,5 @@
 // The classroom's copy of the website: built by the teacher's PC, so no Vercel telemetry.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { signUp } from "./helpers";
 
 test("in the classroom the page only talks to the teacher's PC", async ({ browser, baseURL }) => {

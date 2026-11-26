@@ -12,7 +12,7 @@ const SUMMARY = {
   noteCount: 1,
   public: false,
   owner: "ana",
-  updatedAt: "",
+  updatedAt: 0,
 };
 
 function setup({ loggedIn = true, confirm = true } = {}) {

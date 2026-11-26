@@ -16,6 +16,16 @@ export default defineConfig([
       "no-console": ["warn", { allow: ["error", "warn"] }],
     },
   },
+  {
+    // zod comes from src/lib/zod.ts, which keeps it from probing eval (the CSP forbids it).
+    ignores: ["src/lib/zod.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { paths: [{ name: "zod", message: 'Import z from "@/lib/zod" (zod without eval, for the CSP).' }] },
+      ],
+    },
+  },
   globalIgnores([
     ".next/**",
     "out/**",

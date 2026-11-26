@@ -10,7 +10,7 @@ const M = {
   public: true,
   owner: "ana",
   editedBy: "bo",
-  updatedAt: "2026-11-18T11:55:00Z",
+  updatedAt: Date.parse("2026-11-18T11:55:00Z"),
 };
 
 describe("a melody's line in the list", () => {

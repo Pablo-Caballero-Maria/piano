@@ -1,5 +1,5 @@
 // The class panel, for a teacher in the classroom and for a student online.
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "../render";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ClassDialog } from "@/components/class/ClassDialog";
 import { api, classState, link } from "@/services";

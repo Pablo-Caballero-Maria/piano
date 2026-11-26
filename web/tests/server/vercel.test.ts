@@ -26,7 +26,10 @@ describe("Better Auth on Vercel", () => {
 
   it("asks the accounts API of the host the request came to, with the request's pass", async () => {
     vi.stubEnv("PIANO_DATA_KEY", DATA_KEY);
-    const fetch = vi.fn(async () => Response.json({ accounts: [] }));
+    // What the accounts API answers for a username nobody has
+    const fetch = vi.fn(async (url: string) =>
+      Response.json(url.endsWith("/candidates") ? { accounts: [] } : { account: null }),
+    );
     vi.stubGlobal("fetch", fetch);
     const response = await handleAuth(
       new Request("https://piano-web-git-x.vercel.app/api/auth/sign-in/username", {

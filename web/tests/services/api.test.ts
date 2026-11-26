@@ -1,6 +1,7 @@
 // The REST client and the accounts (Better Auth's client): the session, errors, melodies (fetch is faked).
 import { describe, expect, it, vi } from "vitest";
 import { ApiClient, ApiError } from "@/services/api";
+import { anything } from "@/services/schemas";
 
 type Reply = { status?: number; body?: unknown; headers?: Record<string, string> };
 
@@ -30,6 +31,20 @@ function client(
 }
 
 const SESSION = { token: "tok", user: { username: "ana", role: "teacher" as const } };
+
+/** A melody as pianocore's Melody.summary() sends it. */
+const SUMMARY = {
+  id: "m1",
+  name: "A",
+  bpm: 100,
+  noteCount: 1,
+  length: 3,
+  public: true,
+  owner: "ana",
+  editedBy: "ana",
+  createdAt: 1764000000000,
+  updatedAt: 1764000000000,
+};
 
 describe("ApiClient", () => {
   const SIGNED_IN = { headers: { "set-auth-token": "tok" }, body: { token: "tok", user: {} } };
@@ -118,9 +133,17 @@ describe("ApiClient", () => {
 
   it("an unreachable server is status 0", async () => {
     const { api } = client({});
-    await expect(api.get("/anything")).rejects.toMatchObject({
+    await expect(api.get("/anything", anything)).rejects.toMatchObject({
       status: 0,
       message: "Can't reach the server",
+    });
+  });
+
+  it("an answer of the wrong shape is an error, not a crash later", async () => {
+    const { api } = client({ "GET /api/melodies?scope=mine": { body: { melodies: [{ id: 1 }] } } }, SESSION);
+    await expect(api.listMelodies()).rejects.toMatchObject({
+      message: "The server sent an unexpected answer",
+      status: 200,
     });
   });
 
@@ -130,7 +153,7 @@ describe("ApiClient", () => {
         "GET /api/melodies/m1": {
           body: { melody: { id: "m1", name: "A", bpm: 100, notes: "60:0:1", public: false, owner: "ana" } },
         },
-        "PUT /api/melodies/m1": { body: { melody: { id: "m1", name: "A" } } },
+        "PUT /api/melodies/m1": { body: { melody: SUMMARY } },
         "DELETE /api/melodies/m1": { body: { ok: true } },
       },
       SESSION,

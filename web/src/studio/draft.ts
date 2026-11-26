@@ -1,6 +1,7 @@
 /** The studio's work in progress, kept in this browser so a reload doesn't lose it. */
 import type { Note } from "@/lib/melody";
 import { readJSON, STORAGE_KEYS, writeJSON } from "@/lib/storage";
+import { z } from "@/lib/zod";
 import { DEFAULT_BPM } from "./constants";
 
 export interface Draft {
@@ -14,9 +15,20 @@ export interface Draft {
   dirty: boolean;
 }
 
+/** A stored draft: only the notes are required (older versions of the page stored less). */
+const storedDraftSchema = z.object({
+  id: z.string().nullish(),
+  name: z.string().optional(),
+  bpm: z.number().optional(),
+  notes: z.array(z.object({ p: z.number(), s: z.number(), d: z.number() })),
+  public: z.boolean().optional(),
+  owner: z.string().nullish(),
+  dirty: z.boolean().optional(),
+});
+
 export function loadDraft(): Draft | null {
-  const d = readJSON<Partial<Draft>>(STORAGE_KEYS.studioDraft);
-  if (!d || !Array.isArray(d.notes)) return null;
+  const d = readJSON(STORAGE_KEYS.studioDraft, storedDraftSchema);
+  if (!d) return null;
   return {
     id: d.id ?? null,
     name: d.name ?? "",

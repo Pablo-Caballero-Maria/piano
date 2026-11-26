@@ -1,11 +1,13 @@
 """The website the PC serves (fog/website.py): the built site, its cache headers, updates."""
 
 import json
+import os
 import re
+import time
 
 from fastapi.testclient import TestClient
 
-from fog import website
+from fog import security, website
 from fog.app import Fog, create_app
 from fog.settings import REPO_DIR, Settings
 from fog.simboard import SimulatedBoard
@@ -43,6 +45,56 @@ def test_the_built_site_is_served_with_cache_headers(tmp_path):
         assert client.get("/nowhere").status_code == 404
         assert client.get("/api/config").json()["mode"] == "classroom"  # the API still wins
     board.close()
+
+
+CLASSROOM_HEADERS = [
+    {"key": "Content-Security-Policy", "value": "default-src 'self'; connect-src 'self' ws: wss:"},
+    {"key": "X-Content-Type-Options", "value": "nosniff"},
+    {"key": "X-Frame-Options", "value": "DENY"},
+]
+
+
+def test_every_response_has_the_builds_security_headers(tmp_path):
+    repo = tmp_path / "repo"
+    out = build_site(repo)
+    (out / "_server").mkdir()
+    (out / security.HEADERS_FILE).write_text(json.dumps(CLASSROOM_HEADERS))
+    client, board = client_for(repo, tmp_path)
+    with client:
+        for path in ("/", "/_next/static/chunks/app-1a2b.js", "/api/config", "/nowhere"):
+            headers = client.get(path).headers
+            assert headers["content-security-policy"] == CLASSROOM_HEADERS[0]["value"], path
+            assert headers["x-content-type-options"] == "nosniff"
+            assert headers["x-frame-options"] == "DENY"
+        assert client.get("/_server/headers.json").status_code == 404  # private, like the auth bundle
+
+        # A new build brings its own headers, without restarting
+        (out / security.HEADERS_FILE).write_text(
+            json.dumps([{"key": "X-Frame-Options", "value": "SAMEORIGIN"}])
+        )
+        os.utime(out / security.HEADERS_FILE, (time.time() + 5, time.time() + 5))
+        headers = client.get("/").headers
+        assert headers["x-frame-options"] == "SAMEORIGIN" and "content-security-policy" not in headers
+    board.close()
+
+
+def test_a_build_without_security_headers_still_works(tmp_path):
+    repo = tmp_path / "repo"
+    build_site(repo)
+    client, board = client_for(repo, tmp_path)
+    with client:
+        page = client.get("/")
+        assert page.status_code == 200 and "content-security-policy" not in page.headers
+    board.close()
+
+
+def test_unreadable_security_headers_are_skipped(tmp_path):
+    path = tmp_path / "headers.json"
+    path.write_text("not json")
+    assert security.SecurityHeaders(path).current() == []
+    path.write_text(json.dumps([{"key": "X-Frame-Options", "value": "DENY"}]))
+    os.utime(path, (time.time() + 5, time.time() + 5))
+    assert security.SecurityHeaders(path).current() == [(b"x-frame-options", b"DENY")]
 
 
 def test_without_a_build_a_page_says_how_to_build_it(tmp_path):

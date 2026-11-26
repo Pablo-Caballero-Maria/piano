@@ -20,7 +20,9 @@ export interface MelodySummary {
   public: boolean;
   owner: string;
   editedBy?: string;
-  updatedAt: string;
+  /** When it was created and last saved (ms since 1970, the server's clock). */
+  createdAt?: number;
+  updatedAt: number;
 }
 
 /** A whole melody, notes decoded (GET /api/melodies/<id>). */
@@ -32,7 +34,7 @@ export interface Melody {
   public: boolean;
   owner: string;
   editedBy?: string;
-  updatedAt?: string;
+  updatedAt?: number;
 }
 
 /** What the page saves: a melody without the server's fields. */

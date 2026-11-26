@@ -1,5 +1,6 @@
 /** Steps the end-to-end tests share: a phone (browser context) per person, signing up. */
 import { expect, type Browser, type Page } from "@playwright/test";
+import { watchCsp } from "./fixtures";
 
 let counter = 0;
 /** A username nobody has used on this (fresh) board. */
@@ -8,6 +9,7 @@ export const uniqueName = (base: string) => `${base}${Date.now() % 100000}${coun
 /** A new browser context ("phone") with an account of that role, in the class. */
 export async function signUp(browser: Browser, base: string, role: "teacher" | "student"): Promise<Page> {
   const context = await browser.newContext();
+  await watchCsp(context);
   const page = await context.newPage();
   await page.goto("/");
   const name = uniqueName(base);

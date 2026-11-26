@@ -2,15 +2,26 @@
 import { describe, expect, it, vi } from "vitest";
 import { httpStore, StoreError } from "../../server/auth/store";
 
+/** An account as pianocore/accounts_api.py sends it. */
+const ACCOUNT = {
+  uid: "u1",
+  username: "Ana",
+  role: "student",
+  salt: "00".repeat(16),
+  hash: "11".repeat(32),
+  created: 1,
+  updated: 1,
+};
+
 function fakeFetch(status: number, body: unknown) {
   return vi.fn(async (..._args: Parameters<typeof fetch>) => new Response(JSON.stringify(body), { status }));
 }
 
 describe("the accounts API over HTTP", () => {
   it("POSTs JSON with the internal token and unwraps the answer", async () => {
-    const fetch = fakeFetch(200, { account: { uid: "u1", username: "Ana" } });
+    const fetch = fakeFetch(200, { account: ACCOUNT });
     const store = httpStore({ url: "http://127.0.0.1:8080/internal/accounts", internalToken: "tok", fetch });
-    expect(await store.find("ana")).toEqual({ uid: "u1", username: "Ana" });
+    expect(await store.find("ana")).toEqual(ACCOUNT);
     const [url, init] = fetch.mock.calls[0];
     expect(url).toBe("http://127.0.0.1:8080/internal/accounts/find");
     expect(init?.method).toBe("POST");
@@ -38,7 +49,7 @@ describe("the accounts API over HTTP", () => {
   });
 
   it("maps every call to its route", async () => {
-    const fetch = fakeFetch(200, { account: null, accounts: [], session: null, sessions: [], deleted: 2 });
+    const fetch = fakeFetch(200, { account: ACCOUNT, accounts: [], session: null, sessions: [], deleted: 2 });
     const store = httpStore({ url: "http://x", internalToken: "t", fetch });
     await store.candidates("ana");
     await store.get("u1");
@@ -67,6 +78,19 @@ describe("the accounts API over HTTP", () => {
       "/sessions/of",
       "/sessions/delete-of",
     ]);
+  });
+
+  it("refuses an answer that isn't what the API sends (zod)", async () => {
+    const store = httpStore({
+      url: "http://x",
+      internalToken: "t",
+      fetch: fakeFetch(200, { account: { uid: "u1" } }),
+    });
+    await expect(store.find("ana")).rejects.toMatchObject({
+      name: "StoreError",
+      status: 502,
+      message: "Accounts API: unexpected answer to /find",
+    });
   });
 
   it("turns a refusal into a StoreError with the API's message", async () => {

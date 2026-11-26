@@ -9,33 +9,32 @@ import { checkCredentials, passwordKey } from "@/lib/credentials";
 import { decodeNotes, toPayload, type Melody, type MelodyDraft, type MelodySummary } from "@/lib/melody";
 import { readJSON, STORAGE_KEYS, writeJSON } from "@/lib/storage";
 import { Store } from "@/lib/store";
+import type { z } from "@/lib/zod";
 import { authErrorMessage, createAccountsClient, emailOf, type AccountsClient } from "./auth";
+import {
+  anything,
+  meSchema,
+  melodiesSchema,
+  melodySchema,
+  pcStatusSchema,
+  savedMelodySchema,
+  serverConfigSchema,
+  sessionSchema,
+  type roleSchema,
+  type userSchema,
+} from "./schemas";
 
-export type Role = "teacher" | "student";
+export type Role = z.infer<typeof roleSchema>;
 
-export interface User {
-  username: string;
-  role: Role;
-}
+export type User = z.infer<typeof userSchema>;
 
-export interface Session {
-  token: string;
-  user: User;
-}
+export type Session = z.infer<typeof sessionSchema>;
 
 /** Where this page is: in a classroom (the teacher's PC), online (Vercel), or unreachable. */
-export interface ServerConfig {
-  mode: "classroom" | "online" | "offline";
-  realtime: "ws" | "ably" | null;
-}
+export type ServerConfig = z.infer<typeof serverConfigSchema>;
 
 /** What GET /api/status says about the classroom PC (teachers only). */
-export interface PcStatus {
-  board: { online: boolean; version?: string };
-  internet: boolean;
-  sync: { result: string } | null;
-  update: { version: string; result?: string };
-}
+export type PcStatus = z.infer<typeof pcStatusSchema>;
 
 /** An API call that failed: message is for the user; status 0 means the server wasn't reached. */
 export class ApiError extends Error {
@@ -50,10 +49,6 @@ export class ApiError extends Error {
 
 const OFFLINE: ServerConfig = { mode: "offline", realtime: null };
 
-function validSession(s: Session | null): Session | null {
-  return s?.token && s.user?.username ? s : null;
-}
-
 export class ApiClient {
   /** The logged-in session (null: logged out); components read it with useStore(). */
   readonly session: Store<Session | null>;
@@ -62,7 +57,7 @@ export class ApiClient {
 
   constructor(
     private readonly fetchFn: typeof fetch = (...args) => globalThis.fetch(...args),
-    initial: Session | null = validSession(readJSON<Session>(STORAGE_KEYS.session)),
+    initial: Session | null = readJSON(STORAGE_KEYS.session, sessionSchema),
   ) {
     this.session = new Store(initial);
     this.accounts = createAccountsClient(fetchFn);
@@ -71,7 +66,7 @@ export class ApiClient {
   /** How this page talks to its server (asked once). */
   config(): Promise<ServerConfig> {
     this.configPromise ??= this.fetchFn("/api/config", { cache: "no-store" })
-      .then((r) => (r.ok ? (r.json() as Promise<ServerConfig>) : OFFLINE))
+      .then(async (r) => (r.ok ? serverConfigSchema.parse(await r.json()) : OFFLINE))
       .catch(() => OFFLINE);
     return this.configPromise;
   }
@@ -85,8 +80,11 @@ export class ApiClient {
     this.session.set(s);
   }
 
-  /** fetch() /api…, with the session; throws ApiError on failure (and forgets a rejected session). */
-  async call<T>(method: string, path: string, body?: unknown): Promise<T> {
+  /**
+   * fetch() /api…, with the session, and check the answer against `schema`; throws ApiError on
+   * failure (and forgets a rejected session) or when the answer isn't what was expected.
+   */
+  async call<T>(method: string, path: string, schema: z.ZodType<T>, body?: unknown): Promise<T> {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     const token = this.token();
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -100,16 +98,20 @@ export class ApiClient {
     } catch {
       throw new ApiError("Can't reach the server", 0);
     }
-    const data = (await r.json().catch(() => ({}))) as { error?: string };
+    const data: unknown = await r.json().catch(() => ({}));
     if (!r.ok) {
       if (r.status === 401 && token) this.setSession(null);
-      throw new ApiError(data.error || `Server error ${r.status}`, r.status);
+      const error = (data as { error?: unknown }).error;
+      throw new ApiError(typeof error === "string" && error ? error : `Server error ${r.status}`, r.status);
     }
-    return data as T;
+    const result = schema.safeParse(data);
+    if (!result.success) throw new ApiError("The server sent an unexpected answer", r.status);
+    return result.data;
   }
 
-  get = <T>(path: string): Promise<T> => this.call<T>("GET", path);
-  post = <T>(path: string, body: unknown = {}): Promise<T> => this.call<T>("POST", path, body);
+  get = <T>(path: string, schema: z.ZodType<T>): Promise<T> => this.call("GET", path, schema);
+  post = <T>(path: string, schema: z.ZodType<T>, body: unknown = {}): Promise<T> =>
+    this.call("POST", path, schema, body);
 
   // ---- Accounts ------------------------------------------------------------------------------
 
@@ -137,7 +139,7 @@ export class ApiClient {
   private async startSession(token: string): Promise<string> {
     this.session.set({ token, user: { username: "", role: "student" } }); // so call() sends it
     try {
-      const me = await this.get<{ user: User; notice?: string }>("/me");
+      const me = await this.get("/me", meSchema);
       this.setSession({ token, user: me.user });
       return me.notice ?? "";
     } catch (e) {
@@ -183,31 +185,30 @@ export class ApiClient {
 
   /** "mine": my melodies; "public": everyone's public ones. */
   async listMelodies(scope: "mine" | "public" = "mine"): Promise<MelodySummary[]> {
-    return (await this.get<{ melodies: MelodySummary[] }>(`/melodies?scope=${scope}`)).melodies;
+    return (await this.get(`/melodies?scope=${scope}`, melodiesSchema)).melodies;
   }
 
   async getMelody(id: string): Promise<Melody> {
-    const m = (await this.get<{ melody: Omit<Melody, "notes"> & { notes: string } }>(`/melodies/${id}`))
-      .melody;
+    const m = (await this.get(`/melodies/${id}`, melodySchema)).melody;
     return { ...m, notes: decodeNotes(m.notes) };
   }
 
   async createMelody(m: MelodyDraft): Promise<MelodySummary> {
-    return (await this.post<{ melody: MelodySummary }>("/melodies", toPayload(m))).melody;
+    return (await this.post("/melodies", savedMelodySchema, toPayload(m))).melody;
   }
 
   async updateMelody(id: string, m: MelodyDraft): Promise<MelodySummary> {
-    return (await this.call<{ melody: MelodySummary }>("PUT", `/melodies/${id}`, toPayload(m))).melody;
+    return (await this.call("PUT", `/melodies/${id}`, savedMelodySchema, toPayload(m))).melody;
   }
 
   async deleteMelody(id: string): Promise<void> {
-    await this.call("DELETE", `/melodies/${id}`);
+    await this.call("DELETE", `/melodies/${id}`, anything);
   }
 
   // ---- The classroom PC (teachers) -----------------------------------------------------------
 
-  pcStatus = (): Promise<PcStatus> => this.get<PcStatus>("/status");
-  checkForUpdates = (): Promise<unknown> => this.post("/update");
+  pcStatus = (): Promise<PcStatus> => this.get("/status", pcStatusSchema);
+  checkForUpdates = (): Promise<unknown> => this.post("/update", anything);
 }
 
 /** The page's API client. */

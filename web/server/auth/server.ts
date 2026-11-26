@@ -10,24 +10,20 @@
 import { createServer } from "node:http";
 import { toNodeHandler } from "better-auth/node";
 import { createPianoAuth } from "./auth.js";
+import { parseServerEnv } from "./env.js";
 import { systemKeys } from "./keys.js";
 import { httpStore } from "./store.js";
 
-function required(name: string): string {
-  const value = process.env[name]?.trim();
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
-}
-
-const keys = systemKeys(required("PIANO_DATA_KEY"));
-const publicHost = new URL(process.env.PIANO_PUBLIC_URL || "https://localhost").host;
+const env = parseServerEnv(process.env);
+const keys = systemKeys(env.PIANO_DATA_KEY);
+const publicHost = new URL(env.PIANO_PUBLIC_URL).host;
 const auth = createPianoAuth({
   keys,
-  store: httpStore({ url: required("PIANO_ACCOUNTS_URL"), internalToken: keys.internalToken }),
+  store: httpStore({ url: env.PIANO_ACCOUNTS_URL, internalToken: keys.internalToken }),
   allowedHosts: [publicHost, "localhost:*", "127.0.0.1:*"],
-  rateLimit: process.env.PIANO_AUTH_RATE_LIMIT !== "off",
+  rateLimit: env.PIANO_AUTH_RATE_LIMIT === "on",
 });
-const port = Number(required("PIANO_AUTH_PORT"));
+const port = env.PIANO_AUTH_PORT;
 
 createServer(toNodeHandler(auth)).listen(port, "127.0.0.1", () => {
   console.warn(`Better Auth listening on 127.0.0.1:${port} for ${publicHost}`);

@@ -1,5 +1,5 @@
 // Logging in and creating an account.
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "../render";
 import { describe, expect, it, vi } from "vitest";
 import { AuthDialog } from "@/components/dialogs/AuthDialog";
 import { ApiError } from "@/services/api";

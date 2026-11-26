@@ -5,7 +5,8 @@
  * (handing the buzzer to a student during the lesson), the buzzer queue, and the classroom PC.
  * Students: the buzzer queue (in the classroom) or the live lessons to follow (online).
  */
-import { useEffect, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Modal, ModalHeader } from "@/components/dialogs/Modal";
 import { X } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -242,29 +243,18 @@ function pcStatusText(s: PcStatus): string {
 
 /** The classroom PC: board, internet, cloud sync and software version; check for updates. */
 function PcSection() {
-  const [text, setText] = useState<string | null>(null); // null: still asking
-  const [refreshes, setRefreshes] = useState(0);
-
-  useEffect(() => {
-    let current = true;
-    api.pcStatus().then(
-      (s) => current && setText(pcStatusText(s)),
-      (e: Error) => current && setText(e.message),
-    );
-    return () => {
-      current = false;
-    };
-  }, [refreshes]);
-
-  const checkForUpdates = async () => {
-    try {
-      await api.checkForUpdates();
+  // Asked each time the section opens; asked again a moment after checking for updates.
+  const status = useQuery({ queryKey: ["pc-status"], queryFn: () => api.pcStatus(), staleTime: 0 });
+  const text = status.data ? pcStatusText(status.data) : (status.error?.message ?? null); // null: still asking
+  const update = useMutation({
+    mutationFn: () => api.checkForUpdates(),
+    onSuccess: () => {
       toast("Checking GitHub for a new version…");
-      setTimeout(() => setRefreshes((n) => n + 1), 3000);
-    } catch (e) {
-      toast(e instanceof Error ? e.message : String(e), "error");
-    }
-  };
+      setTimeout(() => void status.refetch(), 3000);
+    },
+    onError: (e) => toast(e.message, "error"),
+  });
+  const checkForUpdates = () => update.mutate();
 
   return (
     <section>
@@ -277,7 +267,7 @@ function PcSection() {
         </pre>
       )}
       <div className={DIALOG_ROW_START}>
-        <button type="button" className={button()} onClick={() => void checkForUpdates()}>
+        <button type="button" className={button()} onClick={checkForUpdates} disabled={update.isPending}>
           Check for updates
         </button>
       </div>

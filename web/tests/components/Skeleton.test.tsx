@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render } from "../render";
 import { describe, expect, it } from "vitest";
 import { Skeleton } from "@/components/ui/Skeleton";
 

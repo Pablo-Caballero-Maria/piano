@@ -47,6 +47,7 @@ from .auth_server import NOT_READY, AuthServer
 from .board import BoardLink
 from .classroom import Classroom
 from .internet import DuckDNS, Internet
+from .security import HEADERS_FILE, SecurityHeaders, SecurityHeadersMiddleware
 from .settings import Settings
 from .sync_service import SyncService
 from .updater import Git, Updater, board_path
@@ -201,6 +202,10 @@ def create_app(settings: Settings | None = None, fog: Fog | None = None, backgro
 
     app = FastAPI(title="Piano class (teacher's PC)", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.fog = fog
+    # Content Security Policy, nosniff, no framing… on every response (written by the website's build)
+    app.add_middleware(
+        SecurityHeadersMiddleware, SecurityHeaders(built_dir(settings.repo_dir) / HEADERS_FILE)
+    )
     install_error_handlers(app)
     app.include_router(make_router(lambda: fog.service))
     app.include_router(make_accounts_router("/internal/accounts", lambda: fog.service))

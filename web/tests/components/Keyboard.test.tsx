@@ -1,5 +1,5 @@
 // The on-screen keyboard component.
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "../render";
 import { describe, expect, it, vi } from "vitest";
 import { Keyboard, OctaveControls } from "@/components/keyboard/Keyboard";
 import { KeyboardController } from "@/lib/keyboard-controller";

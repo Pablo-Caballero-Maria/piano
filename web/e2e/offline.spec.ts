@@ -1,6 +1,6 @@
 // The service worker (src/sw/worker.ts): the page opens without a connection — a phone that has lost
 // the classroom's WiFi — and plays on the phone's own sound. And the light/dark theme.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test("the page opens offline once it has been visited", async ({ page, context }) => {
   await page.goto("/");

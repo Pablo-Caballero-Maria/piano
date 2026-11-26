@@ -9,6 +9,7 @@ import type { ApiClient } from "../api";
 import type { AblyChannel, AblyRealtime, AblySdk } from "./ably-sdk";
 import type { Activity, Mode, Person, StudioShare } from "./messages";
 import type { Emit, Transport } from "./transport";
+import { anything, liveSchema } from "../schemas";
 
 /** Ably limits presence updates: the latest is sent at most every 0.5 s. */
 const PRESENCE_EVERY_MS = 500;
@@ -48,7 +49,7 @@ export class OnlineTransport implements Transport {
     // Tokens come from Vercel (api/index.py) with my username as clientId (required under MAU)
     const client = sdk.createClient({
       authCallback: (_params, cb) => {
-        this.opts.api.post("/ably/token").then(
+        this.opts.api.post("/ably/token", anything).then(
           (tokenRequest) => cb(null, tokenRequest),
           (e: Error) => cb(e.message, null),
         );
@@ -88,7 +89,7 @@ export class OnlineTransport implements Transport {
   /** Ask which lessons are live (api/index.py reads it from Ably). */
   async lessons(): Promise<void> {
     try {
-      const { teachers } = await this.opts.api.get<{ teachers: string[] }>("/live");
+      const { teachers } = await this.opts.api.get("/live", liveSchema);
       this.opts.emit({ t: "lessons", teachers });
     } catch {
       // not logged in or offline: the list stays as it was

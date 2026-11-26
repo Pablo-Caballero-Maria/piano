@@ -228,7 +228,7 @@ describe("StudioEngine", () => {
       noteCount: 2,
       public: true,
       owner: "ana",
-      updatedAt: "",
+      updatedAt: 0,
     });
     expect(studio.store.get()).toMatchObject({ id: "m9", dirty: false, isPublic: true });
     studio.forget("m9");

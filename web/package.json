@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "next dev --port 3000",
-    "build": "next build && node scripts/build-auth-server.mjs",
+    "build": "next build && node scripts/build-auth-server.mjs && node scripts/write-headers.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -18,18 +18,25 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "check": "npm run typecheck && npm run lint && npm run format:check && npm test"
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm test",
+    "headers:vercel": "node scripts/write-headers.mjs --vercel && prettier --write ../vercel.json"
   },
   "dependencies": {
+    "@hookform/resolvers": "7.0.9",
     "@serwist/turbopack": "9.5.15",
+    "@tanstack/react-query": "5.108.4",
     "@vercel/analytics": "2.0.1",
     "@vercel/speed-insights": "2.1.0",
     "better-auth": "1.7.27",
     "lucide-react": "1.75.0",
+    "motion": "14.14.0",
     "next": "16.4.6",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "serwist": "9.5.15"
+    "react-hook-form": "7.92.0",
+    "serwist": "9.5.15",
+    "zod": "4.6.7",
+    "zustand": "5.1.0"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",

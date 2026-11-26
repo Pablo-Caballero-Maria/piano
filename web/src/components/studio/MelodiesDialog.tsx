@@ -1,6 +1,7 @@
 "use client";
 
 /** "Melodies": mine and everyone's public ones, to open, play, copy or delete. */
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Modal, ModalHeader } from "@/components/dialogs/Modal";
 import { Copy, Globe, Play, Trash } from "lucide-react";
@@ -20,9 +21,6 @@ export interface MelodiesDialogProps {
   currentId: string | null;
 }
 
-type ListState =
-  { status: "loading" } | { status: "error"; message: string } | { status: "ready"; items: MelodySummary[] };
-
 /** A row of the list. */
 const ROW = "flex items-center gap-1.5 rounded-[10px] px-2.5 py-2";
 
@@ -36,38 +34,39 @@ const WHERE: Record<string, string> = {
   online: "Kept in the cloud.",
 };
 
+/** The server's config (classroom or online), asked once for the whole page. */
+export const configQuery = {
+  queryKey: ["config"],
+  queryFn: () => api.config(),
+  staleTime: Infinity,
+} as const;
+
 export function MelodiesDialog({ open, onClose, library, currentId }: MelodiesDialogProps) {
   const [scope, setScope] = useState<Scope>("mine");
-  const [list, setList] = useState<ListState>({ status: "loading" });
-  const [where, setWhere] = useState("");
-  const [version, setVersion] = useState(0); // bumped to reload the list
   const session = useStore(api.session, null);
+  const me = session?.user.username ?? null;
+  const queryClient = useQueryClient();
+  // TanStack Query keeps each list (per scope and user); saving, copying or deleting refreshes them.
+  const list = useQuery({
+    queryKey: ["melodies", scope, me],
+    queryFn: () => library.list(scope),
+    enabled: open,
+    staleTime: 0,
+  });
+  const config = useQuery({ ...configQuery, enabled: open });
+  const where = config.data ? (WHERE[config.data.mode] ?? "") : "";
 
-  useEffect(() => library.changed.on(() => setVersion((v) => v + 1)), [library]);
+  useEffect(
+    () => library.changed.on(() => void queryClient.invalidateQueries({ queryKey: ["melodies"] })),
+    [library, queryClient],
+  );
 
-  useEffect(() => {
-    if (!open) return;
-    let current = true;
-    library.list(scope).then(
-      (items) => current && setList({ status: "ready", items }),
-      (e: Error) => current && setList({ status: "error", message: e.message }),
-    );
-    void api.config().then((cfg) => current && setWhere(WHERE[cfg.mode] ?? ""));
-    return () => {
-      current = false;
-    };
-  }, [open, scope, version, session, library]);
-
-  const chooseScope = (s: Scope) => {
-    setScope(s);
-    setList({ status: "loading" });
-  };
+  const chooseScope = (s: Scope) => setScope(s);
 
   const openMelody = async (id: string, play: boolean) => {
     if (await library.open(id, play)) onClose();
   };
 
-  const me = session?.user.username ?? null;
   return (
     <Modal open={open} onClose={onClose} wide label="Melodies">
       <ModalHeader title="Melodies" onClose={onClose} />
@@ -90,16 +89,16 @@ export function MelodiesDialog({ open, onClose, library, currentId }: MelodiesDi
         </button>
       </div>
       <ul className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-auto">
-        {list.status === "loading"
+        {list.isPending
           ? [0, 1, 2].map((i) => (
               <li key={i} aria-label={i === 0 ? "Loading the melodies" : undefined} aria-busy="true">
                 <Skeleton className="h-[52px]" />
               </li>
             ))
           : null}
-        {list.status === "error" ? <li className={`${ROW} ${MUTED}`}>{list.message}</li> : null}
-        {list.status === "ready"
-          ? list.items.map((m) => (
+        {list.isError ? <li className={`${ROW} ${MUTED}`}>{list.error.message}</li> : null}
+        {list.data
+          ? list.data.map((m) => (
               <MelodyRow
                 key={m.id}
                 melody={m}
@@ -113,7 +112,7 @@ export function MelodiesDialog({ open, onClose, library, currentId }: MelodiesDi
             ))
           : null}
       </ul>
-      {list.status === "ready" && !list.items.length ? <p className={MUTED_P}>{EMPTY[scope]}</p> : null}
+      {list.data && !list.data.length ? <p className={MUTED_P}>{EMPTY[scope]}</p> : null}
       <p className="mt-2.5 text-[12px] text-muted">{where}</p>
     </Modal>
   );

@@ -1,5 +1,5 @@
 // The whole page, offline (no server): it renders, switches modes and opens the login.
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "../render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PianoApp } from "@/components/app/PianoApp";
 
