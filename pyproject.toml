@@ -7,9 +7,9 @@ requires-python = ">=3.12"
 dependencies = [
     "aiomqtt>=2.3",
     "cryptography>=44",
-    "fastapi>=0.115",
+    "fastapi>=0.165.0",
     "httpx>=0.28",
-    "pymongo>=4.10",
+    "pymongo>=4.20.1",
     "uvicorn[standard]>=0.32",
 ]
 
@@ -20,7 +20,7 @@ dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "pytest-cov>=7.1.0",
-    "ruff>=0.8",
+    "ruff>=0.17.6",
     "ty>=0.0.107",
 ]
 # Node.js for the website (web/), pinned here so every teacher PC builds it the same way:

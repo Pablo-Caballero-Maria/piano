@@ -1,5 +1,5 @@
 # What the Vercel function (api/index.py) needs. The rest of the project uses pyproject.toml (uv).
-fastapi>=0.115
-pymongo>=4.10
+fastapi>=0.165.0
+pymongo>=4.20.1
 cryptography>=44
 httpx>=0.28
