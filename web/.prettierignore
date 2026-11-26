@@ -6,3 +6,5 @@ next-env.d.ts
 playwright-report/
 test-results/
 coverage/
+# Google Search Console's verification file: its content must stay exactly as Google gave it
+public/google*.html
