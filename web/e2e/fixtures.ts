@@ -22,14 +22,14 @@ export async function watchCsp(context: BrowserContext): Promise<void> {
 }
 
 export const test = base.extend<{ cspClean: void }>({
-  context: async ({ context }, use) => {
+  context: async ({ context }, runTest) => {
     await watchCsp(context);
-    await use(context);
+    await runTest(context);
   },
   cspClean: [
-    async ({}, use) => {
+    async ({}, runTest) => {
       violations.length = 0;
-      await use();
+      await runTest();
       expect(violations, "the page broke the Content Security Policy").toEqual([]);
     },
     { auto: true },
